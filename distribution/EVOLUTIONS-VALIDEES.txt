@@ -1,0 +1,15 @@
+FEUILLE DE ROUTE — PLEX POUR DEVIALET
+Version 0.5.0 en développement, état au 14 octobre 2026.
+
+Les fonctions réalisées, partielles et manquantes sont suivies dans docs/AUDIT.md.
+Cette version inclut les profils Home, recherche globale, chapitres, langues,
+collections, distribution/filmographie, bonus et épisode suivant automatique.
+Le compte à rebours est annulable et l’automatisme peut être désactivé.
+
+La diffusion du code ne remplace pas la validation de l’application sur le Store.
+Avant candidature stable : profils/PIN réels, lectures complètes, autre réseau,
+nouvelle installation, arrêt brutal, mise à jour et installation FreeStore.
+
+Parité restant notamment à travailler : playlists complètes, dossiers, aperçus
+BIF, sous-titres en ligne/décalage, PlayQueue et fonctions TV/DVR/musique/photos.
+Aucun nom de bibliothèque ni prénom de foyer n’est imposé dans l’application.

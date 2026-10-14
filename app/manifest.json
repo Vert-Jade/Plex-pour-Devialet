@@ -1,0 +1,7 @@
+{
+  "name": "Plex pour Devialet",
+  "identifier": "fr.local.plexdevialet",
+  "description": "Vos films et séries Plex, à la télécommande",
+  "entryPoints": {"main": {"file": "main.qml", "default": true}},
+  "capabilities": {"net_wan": "required"}
+}

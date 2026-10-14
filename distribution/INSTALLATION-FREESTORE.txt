@@ -1,0 +1,41 @@
+DISTRIBUTION DE PLEX POUR DEVIALET
+Etat au 14 octobre 2026 : aucune publication ou installation FreeStore validée.
+
+Le code source peut être partagé indépendamment de l’activation FreeFactory.
+Le double-clic Lancer-Cinema.cmd permet un essai développeur ; le PC de lancement
+reste nécessaire et cela ne crée pas une application installée dans les favoris.
+
+PARCOURS PREVU
+1. Créer puis activer le compte développeur sur https://factory.free.fr/register.pl
+   Ce compte est distinct du compte Freebox et du compte Plex.
+2. Confirmer son préfixe et les conditions dans https://factory.free.fr/extranet/login.pl
+3. Après recette, construire le .fbxqml avec tools/package_freestore.py --identifier
+   suivi de l’identifiant réel appartenant à ce préfixe. Le script ne téléverse rien.
+4. Compléter la fiche et soumettre le paquet via la console connectée. Les champs
+   exacts, conditions et dimensions restent à vérifier dans cette console.
+5. Après disponibilité effective : installer depuis le FreeStore puis associer
+   son propre compte Plex et épingler les bibliothèques souhaitées.
+
+FAVORIS
+Le suivi Free indique : accueil Free > ligne Applications > application installée
+> touche i/Info > ajout aux favoris. Ce parcours reste à tester avec cette app
+réellement installée ; il ne s’applique pas au lancement développeur.
+
+CONNEXION ET MISES A JOUR
+L’identifiant local fr.local.plexdevialet reste stable pour les essais existants.
+Un identifiant Store distinct implique une première association distincte.
+Conserver ensuite le même identifiant pour retrouver les réglages lors des mises
+à jour. Ne jamais intégrer un jeton Plex au paquet.
+
+AUTRE RESEAU
+Le compte doit avoir accès au serveur et aux droits Plex requis pour la lecture
+distante. Tester reprise, sous-titres, film complet et redémarrage depuis ce réseau.
+Ne pas exposer le port développeur à Internet. La copie du .fbxqml sur une clé USB
+n’est pas une méthode d’installation validée.
+
+SOURCES
+https://dev.freebox.fr/sdk/player.html
+https://github.com/fbx/freebox-qtcreator-plugin/blob/master/src/freestorepackager.cc
+https://factory.free.fr/register.pl
+https://dev.freebox.fr/bugs/task/24168
+https://support.plex.tv/articles/requirements-for-remote-playback-of-personal-media/

@@ -1,0 +1,24 @@
+VERIFICATIONS — PLEX POUR DEVIALET 0.5.0-dev
+Etat local au 14 octobre 2026 ; version en développement.
+
+- Tests JavaScript : 63 scénarios (logique simulée et chemins de données).
+- Tests Python : 8 scénarios ; lanceur, index public et paquet reproductible.
+- Rendu QML PC : composants réels, données fictives, 720p et 1080p.
+- Catalogue Devialet : recherche, collections, métadonnées, acteur,
+  profils Home XML et épisode suivant : 6 contrôles réussis.
+- Lecture Devialet : direct, reprise, intro injectée, panne simulée,
+  conversion, pistes en pause, déplacement et nettoyage : réussis.
+- Après-lecture : fin contrôlée, compte à rebours, annulation puis
+  ouverture de l’épisode suivant avec image/son : réussis.
+
+Les outils de lecture neutralisent les écritures de progression et restaurent
+les pistes modifiées. Ce ne sont pas des essais de film entier ni de réseau distant.
+L’état des derniers tests automatisés est disponible dans GitHub Actions.
+
+Paquet : construit localement par tools/package_freestore.py, sans transmission.
+Le rapport généré contient les empreintes des ressources, release_ready=false
+et freestore_validation=pending. Les anciens paquets locaux ne sont pas des
+versions de distribution actuelles et restent exclus de Git.
+
+Les conditions de publication, la recette complète et les limites sont décrites
+dans docs/AUDIT.md. Aucun dépôt, accord Free ou installation Store n’est revendiqué.

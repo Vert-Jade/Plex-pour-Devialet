@@ -1,0 +1,25 @@
+# Configuration locale et secrets
+.env
+.env.*
+!.env.example
+!.env.template
+
+# Journaux locaux
+*.log
+.tools/
+.local/
+__pycache__/
+dist/
+.venv/
+*.pyc
+*.qmlproject.user
+*.qmlproject.user.*
+.vscode/
+.idea/
+/AGENTS.md
+/AGENTS.override.md
+
+# Local-only QA fixtures, certificates and credentials
+*.pem
+*.key
+*.pfx

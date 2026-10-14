@@ -1,0 +1,29 @@
+PLEX POUR DEVIALET — BROUILLON DE FICHE
+Version de travail : 0.5.0-dev. Non déposée, non validée.
+Identifiant : utiliser le préfixe réel du compte FreeFactory.
+Prix envisagé : gratuit. Langue : français. Catégorie : multimédia/vidéo.
+Cible de recette : Player Devialet associé à une Delta S.
+Ne pas annoncer une compatibilité Révolution/One sans essai.
+
+DESCRIPTION COURTE
+Vos films et séries Plex sur Devialet, dans une interface pour la télécommande.
+
+DESCRIPTION
+Client indépendant pour accéder aux bibliothèques de votre Plex Media Server.
+Retrouvez vos reprises, les nouveaux ajouts des bibliothèques épinglées et votre
+Watchlist. Choisissez vos pistes, sous-titres et qualité dans une interface noire
+aux accents jade. Le serveur peut préparer un flux compatible jusqu’à 1080p.
+L’association mémorisable, les profils et les épingles personnalisent le Player.
+L’épisode suivant et les sauts de repères Plex sont désactivables.
+
+Compte Plex et serveur accessible requis. Aucun contenu ni abonnement fourni.
+L’accès distant, les extras et certains repères dépendent des droits et capacités
+Plex. Application indépendante, non éditée par Plex, Free ou Devialet.
+Confidentialité et limites : PRIVACY.md, SECURITY.md, docs/PLAYBACK.md.
+
+AVANT DEPOT
+Confirmer le préfixe, les exigences d’images, la catégorie, les coordonnées de
+support et l’usage des marques dans la console FreeFactory. Terminer les cas P0
+de docs/AUDIT.md. Utiliser uniquement les captures fictives de distribution/images.
+Ne pas déposer cette version comme une application achevée tant que la recette
+reste ouverte. Aucun délai ni résultat de validation Free n’est garanti.

@@ -1,0 +1,496 @@
+import QtQuick 2.4
+import "Plex.js" as Plex
+
+FocusScope {
+    id: shell
+    width: 1280; height: 720; focus: true; clip: true
+    FontLoader { id: typeface; source: "fonts/NotoSans-Regular.ttf" }
+    FontLoader { source: "fonts/NotoSans-SemiBold.ttf" }
+    property var api
+    // Remote zones: 0 sidebar, 1 filters, 2 media, 3 pages, 4 tabs.
+    property int zone: 2
+    property int returnZone: 2
+    property int navIndex: 3
+    property int filterButton: 0
+    property int itemIndex: 0
+    property int preferredColumn: 0
+    property int pageButton: 1
+    property int serverIndex: 0
+    property int authChoice: 0
+    property bool detailOpen: false
+    property int detailButton: 0
+    property int detailZone: 0
+    property int detailSecondary: 0
+    property string sheet: ""
+    property int sheetIndex: 0
+    property bool confirmLogout: false
+    property url settingsImage: ""
+    property int settingsCapture: 0
+    property int errorChoice: 0
+    property var focusHistory: []
+    property int restoreIndex: -1
+    property int restoreHub: 0
+    property int hubIndex: 0
+    property int heroButton: 0
+    property bool homePlayPending: false
+    property int tabIndex: 0
+    property string searchDraft: ""
+    property int keyboardIndex: 0
+    property string timeText: Qt.formatTime(new Date(), "hh:mm")
+    readonly property var tabs: ["Bibliothèque"]
+    readonly property var keyboardKeys: "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789".split("").concat(["Espace","Effacer","Vider","Rechercher"])
+    readonly property bool recommended: api.view === 0 && !api.browsePath
+    readonly property var displayedItems: recommended ? (api.hubs[hubIndex] ? api.hubs[hubIndex].items : []) : api.items
+    readonly property var navigation: [{title:"Ma liste",icon:"bookmark"},{title:"Accueil",icon:"home"},{title:"Rechercher",icon:"search"}].concat(api.pinnedLibraries.map(function(l){return {title:l.title,icon:l.type === "show" ? "series" : "film"};})).concat([{title:"Mes bibliothèques",icon:"folder"},{title:"Compte",icon:"user"},{title:"Paramètres",icon:"settings"}])
+    property string dropdown: ""
+    property int dropdownIndex: 0
+    property bool genrePending: false
+    property var hero: ({})
+    readonly property int columns: 6
+    readonly property var current: displayedItems.length > itemIndex ? displayedItems[itemIndex] : ({})
+    readonly property var availableTrailers: Plex.trailers(api.detail)
+    readonly property var bonusOptions: Plex.extras(api.detail).map(function(e,i){return {title:e.title,value:i,extraType:e.extraType};}).filter(function(e){return Number(e.extraType)!==1;})
+    readonly property var detailActions: [{title:"Lire le résumé",kind:"synopsis"}].concat(availableTrailers.length ? [{title:"Bande-annonce",kind:"trailers"}] : []).concat(bonusOptions.length ? [{title:"Bonus",kind:"extras"}] : []).concat((api.detail.Role || []).length ? [{title:"Distribution",kind:"actors"}] : []).concat(!api.detail.cloudOnly && ["movie","show","season","episode"].indexOf(api.detail.type)>=0 ? [{title:"Ma liste",kind:"watchlist"}] : [])
+    readonly property var accountActions: [{title:"Changer de profil",kind:"profiles"}].concat(api.servers.length>1 ? [{title:"Changer de serveur",kind:"servers"}] : []).concat([{title:"À propos et confidentialité",kind:"about"},{title:confirmLogout ? "Confirmer la déconnexion" : "Déconnecter ce Devialet",kind:"logout"},{title:"Fermer",kind:"close"}])
+    readonly property var sheetOptions: sheet==="actors" ? (api.detail.Role || []).map(function(a,i){return {title:a.tag+(a.role ? " · "+a.role : ""),value:i,thumb:a.thumb};}) : sheet==="extras" ? bonusOptions : availableTrailers
+    readonly property string themeSource: visible && isLibrary && !sheet && !api.error && !api.busy ? api.themeUrl(detailOpen ? api.detail : zone === 2 || zone === 5 ? hero : ({})) : ""
+    readonly property bool isLibrary: api.state === "library"
+    readonly property bool navOpen: isLibrary && zone === 0 && !detailOpen && !sheet && !api.error
+    readonly property var filterOptions: [{title:"Tous"},{title:"Non vus"},{title:"En cours"},{title:"Vus"}]
+    readonly property var sortOptions: [{title:"Titre : A à Z"},{title:"Date d’ajout"},{title:"Année"},{title:"Titre : Z à A"},{title:"Date de sortie"},{title:"Note"},{title:"Durée"}]
+    readonly property var dropdownOptions: dropdown === "view" ? [{title:"Bibliothèque"},{title:"Collections"}] : dropdown === "status" ? filterOptions : dropdown === "sort" ? sortOptions : genrePending ? [] : api.genres
+    readonly property int dropdownSelected: dropdown === "view" ? (api.view===2 ? 1 : 0) : dropdown === "status" ? api.filterIndex : dropdown === "sort" ? api.sortIndex : selectedGenre()
+    signal startPlayback(string url, var media, int offset)
+    signal themeRequested(string url)
+    onThemeSourceChanged: { themeRequested(""); themeDelay.restart(); }
+    Timer { id: themeDelay; interval: 700; onTriggered: shell.themeRequested(shell.themeSource) }
+
+    function takeFocus() { forceActiveFocus(); }
+    Timer {id:stateFocus;interval:1;onTriggered:{if(api.state==="profiles")profilePanel.forceActiveFocus();else if(api.state==="libraries")libraryPanel.forceActiveFocus();else shell.takeFocus();}}
+    onNavIndexChanged: if (navIndex <= 1) navReset.restart()
+    Timer { id: navReset; interval: 10; onTriggered: if (shell.navIndex <= 1) nav.positionViewAtBeginning() }
+    function selectedGenre() { for (var i=0; i<api.genres.length; i++) if (api.genres[i].title === api.genreTitle) return i; return 0; }
+    function openNav() { if (zone !== 0) returnZone = zone; closeDropdown(); zone = 0; }
+    function closeNav() { zone = returnZone === 2 && !displayedItems.length && !(recommended && api.hubs.length) ? 4 : returnZone; }
+    function closeDropdown() { dropdown = ""; genrePending = false; }
+    function openFilter(index) {
+        if (api.browsePath) { goParent(); return; }
+        filterButton = index; zone = 1;
+        dropdown = ["status", "genre", "sort"][index]; genrePending = false;
+        if (dropdown === "genre") {
+            dropdownIndex = selectedGenre();
+            if (!api.genres.length) { genrePending = true; api.loadGenres(); }
+        } else dropdownIndex = dropdownSelected;
+    }
+    function applyFilter(index) {
+        if (genrePending || index < 0 || index >= dropdownOptions.length) return;
+        var kind = dropdown; var selected = dropdownSelected;
+        closeDropdown();
+        if (index === selected) return;
+        if(kind==="view"){zone=4;api.selectView(index===1 ? 2 : 1);}
+        else if (kind === "status") api.changeFilter(index);
+        else if (kind === "sort") api.changeSort(index);
+        else api.chooseGenre(index);
+    }
+    function goParent() {
+        if (!api.history.length) return;
+        var stack = focusHistory.slice(); var previous = stack.length ? stack.pop() : {item:0,hub:0}; restoreIndex = previous.item; restoreHub = previous.hub; focusHistory = stack;
+        zone = 2; api.back();
+    }
+    function back() {
+        settingsCapture++;
+        if (api.error) {
+            if (isLibrary) { api.error = ""; takeFocus(); }
+            else if (api.servers.length) { api.error = ""; api.showServers(); }
+            else {api.error="";api.state="auth";}
+            return;
+        }
+        if (dropdown) closeDropdown();
+        else if (sheet) { sheet = ""; confirmLogout = false; }
+        else if (detailOpen) { detailOpen = false; detailZone = 0; }
+        else if (api.state === "servers" && api.serverUrl) api.state = "library";
+        else if (navOpen) closeNav();
+        else if (isLibrary && api.history.length) goParent();
+        else if (isLibrary) openNav();
+        takeFocus();
+    }
+    function selectTab(index) {
+        tabIndex = index; zone = 4;dropdown="view";dropdownIndex=api.view===2 ? 1 : 0;
+    }
+    function selectNav() {
+        if (navIndex === navigation.length - 1) openSettings();
+        else if (navIndex === 2) { sheet = "search"; searchDraft = api.searchText; keyboardIndex = 0; }
+        else if (navIndex === 0) { zone = 2; itemIndex = 0; hubIndex = 0; focusHistory = []; api.showWatchlist(); }
+        else if (navIndex === 1) { zone = 2; itemIndex = 0; hubIndex = 0; focusHistory = []; api.showHome(); }
+        else if (navIndex === navigation.length - 2) { sheet = "account"; sheetIndex = 0; confirmLogout = false; }
+        else if(navIndex===navigation.length-3) api.openLibraries();
+        else {
+            var library=api.pinnedLibraries[navIndex-3];if(!library)return;
+            var index=api.libraries.map(function(l){return String(l.key);}).indexOf(String(library.key));
+            if (!api.home && !api.watchlist && !api.globalSearch && library.key === api.section.key && !api.browsePath) { closeNav(); return; }
+            detailOpen = false; zone = 2; itemIndex = 0; hubIndex = 0; preferredColumn = 0; focusHistory = []; api.selectLibrary(index);
+        }
+    }
+    function rememberFocus() { var stack = focusHistory.slice(); stack.push({item:itemIndex,hub:hubIndex}); focusHistory = stack; }
+    function openCurrent() {
+        if (!current || !current.type) return;
+        if (["collection","playlist","category"].indexOf(current.type) >= 0) rememberFocus();
+        api.openMedia(current);
+    }
+    function homeAction(index) {
+        if (!current || !current.type || api.busy) return;
+        heroButton = index;
+        if (index === 1) { api.toggleWatchlist(hero); return; }
+        homePlayPending = index === 0;
+        api.openMedia(current);
+        takeFocus();
+    }
+    function openSettings() {
+        if (sheet === "settings") return;
+        closeDropdown();
+        var generation = ++settingsCapture;
+        var captured = shell.grabToImage(function(result) {
+            if (generation !== shell.settingsCapture || !shell.isLibrary || !shell.visible) return;
+            shell.settingsImage = result.url; shell.sheetIndex = 0; shell.sheet = "settings";
+        });
+        if (!captured) { settingsImage = ""; sheetIndex = 0; sheet = "settings"; }
+    }
+    onSheetChanged: if (sheet !== "settings") settingsImage = ""
+    function searchKey() {
+        if (keyboardIndex < 36) searchDraft += keyboardKeys[keyboardIndex];
+        else if (keyboardIndex === 36) searchDraft += " ";
+        else if (keyboardIndex === 37) searchDraft = searchDraft.slice(0,-1);
+        else if (keyboardIndex === 38) searchDraft = "";
+        else if (searchDraft.trim()) { sheet = ""; zone = 2; hubIndex = 0; focusHistory = []; api.search(searchDraft); }
+    }
+    function detailAction() {
+        if (detailZone === 1) {
+            var action=detailActions[detailSecondary];if(!action)return;
+            if(action.kind==="watchlist"){api.toggleWatchlist(api.detail);return;}
+            if (action.kind === "trailers") {
+                if (availableTrailers.length === 1) api.playTrailer(0);
+                else { sheet = "trailers"; sheetIndex = 0; }
+            } else { sheet = action.kind;sheetIndex=0;synopsis.contentY = 0; }
+            return;
+        }
+        if (detailButton === 4) { detailOpen = false; return; }
+        if (detailButton === 3) { sheet = "info"; return; }
+        if (detailButton === 2) { api.markWatched(); return; }
+        if (api.detail.type === "show" || api.detail.type === "season") {
+            rememberFocus();
+            detailOpen = false; zone = 2; api.openChildren();
+        } else api.play(detailButton === 0);
+    }
+    function sheetAction() {
+        if (sheet === "synopsis" || sheet === "info" || sheet==="about") { sheet = ""; return; }
+        if (sheet === "search") { searchKey(); return; }
+        if (sheet === "settings") { if (sheetIndex === Plex.settingsRows(api).length) sheet = "";else if(sheetIndex===14){sheet="";api.openLibraries();} else api.changePreference(sheetIndex,1); return; }
+        if (sheet === "trailers") { sheet = ""; api.playTrailer(sheetIndex); return; }
+        if(sheet==="extras"){var extra=sheetOptions[sheetIndex];sheet="";if(extra)api.playExtra(extra.value);return;}
+        if(sheet==="actors"){var actor=sheetOptions[sheetIndex];sheet="";if(actor){rememberFocus();detailOpen=false;zone=2;api.openActor(actor.value);}return;}
+        var choice=accountActions[sheetIndex];if(!choice)return;
+        if(choice.kind==="profiles"){sheet="";detailOpen=false;api.loadProfiles();return;}
+        if(choice.kind==="servers"){sheet="";detailOpen=false;api.showServers();return;}
+        if(choice.kind==="about"){sheet="about";return;}
+        if (choice.kind === "logout") {
+            if (!confirmLogout) confirmLogout = true;
+            else { sheet = ""; detailOpen = false; confirmLogout = false; api.logout(); }
+        } else { sheet = ""; confirmLogout = false; }
+    }
+    function changePage(delta) {
+        if (api.busy) return;
+        if (api.page + delta < 0 || (api.page + delta) * api.pageSize >= api.total) return;
+        zone = 2; api.changePage(delta);
+    }
+    function activate() {
+        if (api.error) { if (errorChoice === 0) api.retry(); else back(); return; }
+        if (dropdown) { applyFilter(dropdownIndex); return; }
+        if (sheet) { sheetAction(); return; }
+        if (api.busy) return;
+        if (api.state === "auth") {if(authChoice===1)api.setRememberAccount(!api.rememberAccount);else api.connectAccount();}
+        else if (api.state === "servers") api.chooseServer(serverIndex);
+        else if (detailOpen) detailAction();
+        else if (isLibrary) {
+            if (zone === 0) selectNav();
+            else if (zone === 1) openFilter(filterButton);
+            else if (zone === 2) openCurrent();
+            else if (zone === 5) homeAction(heroButton);
+            else if (zone === 4) { if (api.browsePath) goParent(); else if (api.home) openNav(); else selectTab(tabIndex); }
+            else changePage(pageButton === 0 ? -1 : 1);
+        }
+    }
+    function move(dx, dy) {
+        if (api.error) { errorChoice = Math.max(0, Math.min(1, errorChoice + dx + dy)); return; }
+        if(api.state==="auth"){authChoice=Math.max(0,Math.min(1,authChoice+dy));return;}
+        if (dropdown) {
+            if (dx && dropdown!=="view") { var next = filterButton + dx; if (next >= 0 && next < 3) openFilter(next); }
+            if (dy && !genrePending) dropdownIndex = Math.max(0, Math.min(dropdownOptions.length - 1, dropdownIndex + dy));
+            return;
+        }
+        if (sheet === "info" || sheet==="about") return;
+        if (sheet === "search") { if (dx) keyboardIndex = Math.max(0,Math.min(39,keyboardIndex+dx)); if (dy) keyboardIndex = Math.max(0,Math.min(39,keyboardIndex+dy*10)); return; }
+        if (sheet === "synopsis") { synopsis.contentY = Math.max(0, Math.min(Math.max(0,synopsis.contentHeight - synopsis.height), synopsis.contentY + dy * 84)); return; }
+        if (sheet === "settings") { var count=Plex.settingsRows(api).length;sheetIndex = Math.max(0,Math.min(count,sheetIndex + dy)); if (dx && sheetIndex < count) api.changePreference(sheetIndex,dx); return; }
+        if (["trailers","extras","actors"].indexOf(sheet)>=0) { sheetIndex = Math.max(0,Math.min(sheetOptions.length-1,sheetIndex + dy)); return; }
+        if (sheet) { sheetIndex = Math.max(0, Math.min(accountActions.length-1, sheetIndex + dy)); confirmLogout = false; return; }
+        if (api.state === "servers") { serverIndex = Math.max(0, Math.min(api.servers.length - 1, serverIndex + dy)); return; }
+        if (detailOpen) {
+            if (dy) detailZone = dy > 0 ? 1 : 0;
+            if (dx && detailZone === 1) detailSecondary = Math.max(0,Math.min(detailActions.length-1,detailSecondary + dx));
+            if (dx && detailZone === 0) {
+                detailButton = Math.max(0, Math.min(4, detailButton + dx));
+                if (api.detail.cloudOnly) { detailButton = Math.max(3,detailButton); return; }
+                if (detailButton === 1 && (!api.detail.viewOffset || api.detail.type === "show" || api.detail.type === "season")) detailButton = dx > 0 ? 2 : 0;
+            }
+            return;
+        }
+        if (!isLibrary) return;
+        if (zone === 5) {
+            if (dx < 0 && heroButton === 0) openNav();
+            else if (dx) heroButton = Math.max(0,Math.min(2,heroButton+dx));
+            if (dy > 0) zone = 2;
+            if (dy < 0) openNav();
+        } else if (zone === 0) {
+            navIndex = Math.max(0, Math.min(navigation.length - 1, navIndex + dy));
+            if (dx > 0) closeNav();
+        } else if (zone === 4) {
+            if (api.browsePath || api.home || api.watchlist || api.globalSearch) { if (dx < 0) openNav(); if (dy > 0 && (displayedItems.length || (recommended && api.hubs.length))) zone = 2; return; }
+            if (dx < 0 && tabIndex === 0) openNav();
+            else tabIndex = Math.max(0, Math.min(tabs.length-1,tabIndex+dx));
+            if (dy > 0) zone = api.view === 1 && !api.browsePath && !api.home ? 1 : displayedItems.length ? 2 : 4;
+        } else if (zone === 1) {
+            if (dx < 0 && filterButton === 0) openNav();
+            else filterButton = Math.max(0, Math.min(api.browsePath ? 0 : 2, filterButton + dx));
+            if (dy > 0) zone = displayedItems.length ? 2 : 1;
+            if (dy < 0) zone = 4;
+        } else if (zone === 2) {
+            if (recommended) {
+                if (dx < 0 && itemIndex === 0) { openNav(); return; }
+                if (dx) itemIndex = Math.max(0, Math.min(displayedItems.length-1,itemIndex+dx));
+                if (dy < 0 && hubIndex === 0) { if (displayedItems.length) { zone = 5; heroButton = 0; } else openNav(); return; }
+                if (dy && hubIndex+dy >= 0 && hubIndex+dy < api.hubs.length) { hubIndex += dy; itemIndex = Math.max(0, Math.min(itemIndex,displayedItems.length-1)); }
+                return;
+            }
+            var column = itemIndex % columns;
+            var row = Math.floor(itemIndex / columns);
+            if (dx < 0 && column === 0) { openNav(); return; }
+            if (dx && column + dx >= 0 && column + dx < columns && itemIndex + dx < api.items.length) { itemIndex += dx; preferredColumn = itemIndex % columns; }
+            if (dy < 0) { if (row === 0) { if ((api.watchlist || api.globalSearch) && !api.browsePath) openNav(); else zone = api.view === 1 && !api.browsePath ? 1 : 4; } else itemIndex = (row - 1) * columns + preferredColumn; }
+            if (dy > 0) {
+                if ((row + 1) * columns < api.items.length) itemIndex = Math.min(api.items.length - 1, (row + 1) * columns + preferredColumn);
+                else if (api.page > 0 || api.total > api.pageSize) { zone = 3; pageButton = (api.page + 1) * api.pageSize < api.total ? 1 : 0; }
+            }
+        } else {
+            if (dx < 0 && pageButton === 0) openNav(); else pageButton = Math.max(0, Math.min(1, pageButton + dx));
+            if (dy < 0) zone = api.items.length ? 2 : 1;
+        }
+    }
+    Keys.onPressed: {
+        if (event.key === Qt.Key_Back || event.key === Qt.Key_Escape || event.key === Qt.Key_Backspace) { back(); event.accepted = true; }
+        else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter || event.key === Qt.Key_Select || event.key === Qt.Key_Space) { activate(); event.accepted = true; }
+        else if (event.key === Qt.Key_Left) { move(-1,0); event.accepted = true; }
+        else if (event.key === Qt.Key_Right) { move(1,0); event.accepted = true; }
+        else if (event.key === Qt.Key_Up) { move(0,-1); event.accepted = true; }
+        else if (event.key === Qt.Key_Down) { move(0,1); event.accepted = true; }
+        else if (event.key === Qt.Key_Menu && isLibrary && !api.error) { openSettings(); event.accepted = true; }
+    }
+    Timer { interval: 30000; running: true; repeat: true; onTriggered: shell.timeText = Qt.formatTime(new Date(), "hh:mm") }
+    onCurrentChanged: heroTimer.restart()
+    Timer { id: heroTimer; interval: 140; onTriggered: { if (shell.hero.ratingKey !== shell.current.ratingKey) shell.hero = shell.current; previewDelay.restart(); } }
+    Timer { id: previewDelay; interval: 450; onTriggered: if (shell.isLibrary && shell.visible && !shell.detailOpen) api.previewMedia(shell.current) }
+    Connections {
+        target: api
+        onLibraryLoaded: {
+            shell.hubIndex = shell.restoreIndex >= 0 ? shell.restoreHub : 0;
+            shell.tabIndex = 0;
+            shell.itemIndex = shell.restoreIndex >= 0 ? Math.min(shell.restoreIndex, Math.max(0,shell.displayedItems.length - 1)) : 0;
+            shell.restoreIndex = -1; shell.preferredColumn = shell.itemIndex % shell.columns;
+            grid.positionViewAtIndex(shell.itemIndex, GridView.Beginning);
+            if (!shell.displayedItems.length && shell.zone === 2 && !(api.home && api.hubs.length)) shell.zone = api.watchlist || api.globalSearch || api.home ? 0 : api.view === 1 ? 1 : 4;
+            shell.navIndex=api.globalSearch ? 2 : api.watchlist ? 0 : 1;
+            for (var i=0; i<api.pinnedLibraries.length; i++) if (api.pinnedLibraries[i].key === api.section.key && !api.globalSearch && !api.watchlist && !api.home) shell.navIndex=i+3;
+            shell.hero = shell.current; shell.takeFocus();
+        }
+        onDetailsLoaded: {
+            if (shell.homePlayPending) {
+                shell.homePlayPending = false;
+                if (api.detail.type === "show" || api.detail.type === "season") { shell.rememberFocus(); api.openChildren(); }
+                else api.play(true);
+            } else { shell.detailOpen = true; shell.detailButton = api.detail.cloudOnly ? 3 : 0; shell.detailZone = 0; shell.detailSecondary = 0; }
+            shell.takeFocus();
+        }
+        onGenresLoaded: { if (shell.dropdown === "genre" && shell.genrePending) { shell.genrePending = false; shell.dropdownIndex = shell.selectedGenre(); } }
+        onPreviewLoaded: if (media.ratingKey === shell.current.ratingKey) shell.hero = media
+        onPlaybackRequested: shell.startPlayback(url, media, offset)
+        onErrorChanged: { if (api.error) { shell.homePlayPending = false; shell.errorChoice = 0; shell.closeDropdown(); } }
+        onStateChanged: {if(api.state!=="library"){shell.detailOpen=false;shell.sheet="";shell.hero=({});shell.settingsCapture++;shell.closeDropdown();}stateFocus.restart();}
+    }
+
+    Rectangle { anchors.fill: parent; color: "#080808"; visible: isLibrary || api.state === "servers" }
+    HomeView { id: homeView; anchors.fill: parent; api: shell.api; controller: shell; visible: isLibrary && shell.recommended && !shell.detailOpen
+    }
+    Item {
+        id: content; x: shell.navOpen ? 216 : 0; width: 1280; height: 720; visible: isLibrary && !shell.detailOpen && !shell.recommended
+        Behavior on x { NumberAnimation { duration: 130 } }
+        Row { x: 88; y: 22; spacing: 8; visible: !api.home && !api.watchlist && !api.globalSearch && !api.browsePath
+            Repeater { model: shell.tabs
+                Item { width: tabText.implicitWidth + 30; height: 48
+                    Rectangle { anchors.fill: parent; radius: 4; color: shell.zone === 4 && shell.tabIndex === index ? "white" : "transparent" }
+                    Text { id: tabText; anchors.centerIn: parent; text: (api.view===2 ? "Collections" : "Bibliothèque")+"  ▾"; font.family: typeface.name; font.pixelSize: 19; color: shell.zone === 4 && shell.tabIndex === index ? "#202020" : "white" }
+                    Rectangle { x: 7; y: 52; height: 2; width: parent.width-14; color: "#59d6a6"; visible: api.view === 1 }
+                    MouseArea { anchors.fill: parent; onClicked: { shell.selectTab(index); shell.takeFocus(); } }
+                }
+            }
+        }
+        TvButton { x: 88; y: 22; width: 790; height: 48; visible: !!api.browsePath; text: "‹   " + api.browseTitle; highlighted: shell.zone === 4 || shell.zone === 1; onClicked: { shell.goParent(); shell.takeFocus(); } }
+        Text { x: 96; y: 32; text: api.globalSearch ? "Recherche dans toutes les bibliothèques" : api.watchlist ? "Liste de suivis" : "Accueil"; visible: (api.home || api.watchlist || api.globalSearch) && !api.browsePath; font.family: typeface.name; font.pixelSize: 23; color: "white" }
+        Text { x: 1100; y: 32; width: 112; text: shell.timeText; horizontalAlignment: Text.AlignRight; color: "#aaa"; font.family: typeface.name; font.pixelSize: 20 }
+        Row { x: 96; y: 94; spacing: 12; visible: api.view === 1 && !api.watchlist && !api.globalSearch && !api.browsePath
+            FilterButton { width: 154; text: shell.filterOptions[api.filterIndex].title; highlighted: shell.zone === 1 && shell.filterButton === 0 && !shell.dropdown; expanded: shell.dropdown === "status"; filtered: api.filterIndex > 0; onClicked: { shell.openFilter(0); shell.takeFocus(); } }
+            FilterButton { width: 236; text: api.genreTitle; highlighted: shell.zone === 1 && shell.filterButton === 1 && !shell.dropdown; expanded: shell.dropdown === "genre"; filtered: api.genreTitle !== "Tous les genres"; onClicked: { shell.openFilter(1); shell.takeFocus(); } }
+            Text { width: 30; height: 46; text: "par"; color: "#aaa"; font.family: typeface.name; font.pixelSize: 18; verticalAlignment: Text.AlignVCenter }
+            FilterButton { width: 204; text: shell.sortOptions[api.sortIndex].title; highlighted: shell.zone === 1 && shell.filterButton === 2 && !shell.dropdown; expanded: shell.dropdown === "sort"; onClicked: { shell.openFilter(2); shell.takeFocus(); } }
+            Text { width: 260; height: 46; text: api.busy ? "Chargement…" : api.total + ((api.section || {}).type === "show" ? " séries" : " films"); color: "#aaa"; font.family: typeface.name; font.pixelSize: 19; verticalAlignment: Text.AlignVCenter }
+        }
+        Text { x: 96; y: 104; visible: !shell.recommended && (api.watchlist || api.globalSearch || api.view !== 1 || !!api.browsePath); text: (api.busy || (api.globalSearch && api.homeLoading)) ? "Recherche en cours… · "+api.total+" titres" : api.total + " titres"; font.family: typeface.name; font.pixelSize: 20; color: "#aaa" }
+        Text { x: 96; y: 148; visible: !!api.searchText; text: "Résultats pour « " + api.searchText + " »"; font.family: typeface.name; font.pixelSize: 16; color: "#59d6a6" }
+        GridView {
+            id: grid; objectName: "posterGrid"; x: 84; y: 176; width: 1104; height: 484; visible: !shell.recommended
+            cellWidth: 184; cellHeight: 330; model: api.items; currentIndex: shell.itemIndex; interactive: false; clip: true
+            highlightRangeMode: GridView.ApplyRange; preferredHighlightBegin: 0; preferredHighlightEnd: 330; highlightMoveDuration: 130
+            delegate: PosterCard { api: shell.api; media: modelData; highlighted: shell.zone === 2 && shell.itemIndex === index && !shell.sheet && !shell.dropdown && !api.error
+                onClicked: { shell.zone = 2; shell.itemIndex = index; shell.preferredColumn = index % shell.columns; shell.openCurrent(); shell.takeFocus(); }
+            }
+        }
+        Rectangle { x: 1215; y: 186; width: 3; height: 458; color: "#353535"; visible: !shell.recommended && grid.contentHeight > grid.height
+            Rectangle { width: 3; height: Math.max(24,parent.height * grid.height / Math.max(1,grid.contentHeight)); y: Math.max(0,Math.min(parent.height-height,grid.contentY/Math.max(1,grid.contentHeight-grid.height)*(parent.height-height))); color: "#888" }
+        }
+        Column { x: 96; y: 248; width: 1050; spacing: 20; visible: !shell.displayedItems.length && !api.busy && !shell.recommended
+            Text { text: api.watchlist ? "Votre liste de suivis est vide" : api.view === 2 ? "Aucune collection" : api.view === 3 ? "Aucune liste de lecture" : "Aucun titre"; font.family: typeface.name; font.pixelSize: 32; color: "white" }
+            Text { width: 900; text: api.watchlist ? "Ajoutez des films et séries à votre Watchlist dans Plex." : api.view === 2 || api.view === 3 ? "Les éléments créés dans Plex apparaîtront ici." : "Essayez une autre bibliothèque ou modifiez les filtres."; font.family: typeface.name; font.pixelSize: 21; color: "#bbb"; wrapMode: Text.Wrap }
+        }
+        Rectangle { x: 64; y: 667; width: 1216; height: 53; color: "#ed080808" }
+        Text { x: 96; y: 682; text: api.globalSearch && api.searchNotice ? api.searchNotice : api.homeNotice && api.home ? api.homeNotice : api.browseTitle; font.family: typeface.name; font.pixelSize: 16; color: "#aaa"; width: 650; elide: Text.ElideRight }
+        Text { x: 750; y: 682; width: 300; horizontalAlignment: Text.AlignRight; text: shell.displayedItems.length ? (shell.recommended ? (shell.hubIndex+1) + " / " + api.hubs.length : (api.page * api.pageSize + shell.itemIndex+1) + " / " + api.total) : ""; font.family: typeface.name; font.pixelSize: 16; color: "#aaa" }
+        TvButton { x: 1090; y: 674; width: 54; height: 38; text: "‹"; visible: !shell.recommended; highlighted: shell.zone === 3 && shell.pageButton === 0; available: api.page > 0; onClicked: { shell.changePage(-1); shell.takeFocus(); } }
+        TvButton { x: 1158; y: 674; width: 54; height: 38; text: "›"; visible: !shell.recommended; highlighted: shell.zone === 3 && shell.pageButton === 1; available: (api.page+1)*api.pageSize < api.total; onClicked: { shell.changePage(1); shell.takeFocus(); } }
+    }
+    Rectangle {
+        width: shell.navOpen ? 280 : shell.recommended ? 166 : 64; height: 720; visible: isLibrary && !shell.detailOpen
+        color: shell.recommended ? "#ee080808" : "#101010"; clip: true
+        Behavior on width { NumberAnimation { duration: 130 } }
+        Image { x: (parent.width-86)/2; y: 28; width: 86; height: 40; source: "assets/plex-logo.svg"; fillMode: Image.PreserveAspectFit; visible: shell.recommended || shell.navOpen }
+        Text { x: 8; y: 74; width: parent.width-16; text: "pour DEVIALET"; font.family: typeface.name; font.pixelSize: 11; font.letterSpacing: 1.5; horizontalAlignment: Text.AlignHCenter; color: "#c9c9c9"; visible: shell.recommended || shell.navOpen }
+        ListView { id: nav; x: 0; y: shell.recommended || shell.navOpen ? 115 : 20; width: parent.width; height: parent.height-y-18; interactive: false; clip: true; model: shell.navigation; currentIndex: shell.navIndex; highlightRangeMode: ListView.ApplyRange; preferredHighlightBegin: 0; preferredHighlightEnd: 450; highlightMoveDuration: 130
+            delegate: Item { width: nav.width; height: 64
+                property bool focused: shell.navOpen && shell.navIndex === index
+                property bool active: (index === 2 && api.globalSearch) || (index === 0 && api.watchlist) || (index === 1 && api.home) || (!api.home && !api.watchlist && !api.globalSearch && index > 2 && index-3 < api.pinnedLibraries.length && api.pinnedLibraries[index-3].key === api.section.key)
+                Rectangle { y: 2; width: parent.width; height: 50; radius: 12; color: parent.focused || parent.active ? "#a20d3326" : "transparent"; border.color: parent.focused ? "#5865ffe3" : "transparent"
+                    GlowFrame { visible: parent.parent.focused || parent.parent.active; corner: 12; strength: parent.parent.focused ? .7 : .25 }
+                    Rectangle { width: 3; height: parent.height; radius: 2; color: "#65ffe3"; visible: parent.parent.active || parent.parent.focused }
+                }
+                TvIcon { x: shell.recommended ? 31 : 20; y: 15; width: 22; height: 22; kind: modelData.icon; ink: parent.focused || parent.active ? "#fcfcfc" : "#b6b6b6" }
+                Text { visible: shell.recommended || shell.navOpen; x: shell.recommended ? 71 : 57; width: parent.width-x-8; y: 17; text: modelData.title; font.family: typeface.name; font.pixelSize: shell.recommended ? 14 : 18; elide: Text.ElideRight; color: parent.focused || parent.active ? "#fcfcfc" : "#bbbbbb" }
+                MouseArea { anchors.fill: parent; onClicked: { shell.openNav(); shell.navIndex = index; shell.selectNav(); shell.takeFocus(); } }
+            }
+        }
+    }
+
+    AuthScreen { anchors.fill: parent; api: shell.api;rememberFocused:shell.authChoice===1; visible: api.state === "auth" || api.state === "starting"; onConnectRequested: { api.connectAccount(); shell.takeFocus(); }onRememberToggled:{api.setRememberAccount(!api.rememberAccount);shell.authChoice=1;shell.takeFocus();} }
+    ProfileScreen {id:profilePanel;anchors.fill:parent;api:shell.api;visible:api.state==="profiles"}
+    LibraryScreen {id:libraryPanel;anchors.fill:parent;api:shell.api;visible:api.state==="libraries"}
+    Item {
+        anchors.fill: parent; visible: api.state === "servers"
+        Text { x: 90; y: 75; text: "Choisissez votre serveur"; color: "#f5f5f5"; font.family: typeface.name; font.pixelSize: 38; font.weight: Font.DemiBold }
+        Text { x: 90; y: 135; text: "Votre choix sera retrouvé automatiquement au prochain lancement."; color: "#afafaf"; font.family: typeface.name; font.pixelSize: 22 }
+        ListView { x: 90; y: 214; width: 1100; height: 390; spacing: 14; clip: true; model: api.servers; currentIndex: shell.serverIndex; highlightRangeMode: ListView.ApplyRange
+            delegate: TvButton { width: 1100; height: 74; text: modelData.name; textSize: 25; highlighted: index === shell.serverIndex; onClicked: { api.chooseServer(index); shell.takeFocus(); } }
+        }
+    }
+
+    Rectangle {
+        anchors.fill: parent; visible: shell.detailOpen; color: "#080808"
+        Image { x: 280; width: 1000; height: 720; source: shell.detailOpen ? api.imageUrl(api.detail.art || api.detail.thumb || "",1600,900) : ""; asynchronous: true; fillMode: Image.PreserveAspectCrop }
+        Image { anchors.fill: parent; source: "assets/cinema-shade.svg" }
+        Text { x: 94; y: 48; text: "‹   " + api.browseTitle; font.family: typeface.name; font.pixelSize: 19; color: "#c4c4c4" }
+        Text { x: 94; y: 169; text: api.detail.type === "show" ? "SÉRIE" : api.detail.type === "season" ? "SAISON" : api.detail.type==="episode" ? "ÉPISODE" : "FILM"; font.family: typeface.name; font.pixelSize: 13; font.letterSpacing: 2.8; color: "#59d6a6" }
+        Text { x: 90; y: 205; width: 1060; height: 120; text: Plex.label(api.detail); font.family: typeface.name; font.pixelSize: 48; font.weight: Font.DemiBold; color: "#fafafa"; maximumLineCount: 2; wrapMode: Text.Wrap; elide: Text.ElideRight }
+        Text { x: 94; y: 346; text: String(api.detail.year || "") + (api.detail.duration ? "    ·    " + Plex.duration(api.detail.duration) : "") + (api.detail.contentRating ? "    ·    " + Plex.age(api.detail.contentRating) : ""); font.family: typeface.name; font.pixelSize: 21; color: "#d9d9d9" }
+        Text { x: 94; y: 391; width: 860; height: 108; text: api.detail.cloudOnly ? "Ce titre fait partie de votre liste de suivis Plex. Il n’est pas disponible dans les bibliothèques de ce serveur." : api.detail.summary || "Aucun résumé disponible."; font.family: typeface.name; font.pixelSize: 22; color: "#c5c5c5"; maximumLineCount: 3; wrapMode: Text.Wrap; elide: Text.ElideRight; lineHeight: 1.2 }
+        Row { x: 94; y: 546; spacing: 16
+            TvButton { width: 270; height: 58; available: !api.detail.cloudOnly; text: api.detail.cloudOnly ? "Absent de ce serveur" : api.detail.type === "show" ? "Voir les saisons" : api.detail.type === "season" ? "Voir les épisodes" : api.detail.viewOffset ? "Reprendre à " + Plex.clock(api.detail.viewOffset) : "Lire"; icon: "play"; highlighted: shell.detailZone === 0 && shell.detailButton === 0 && !shell.sheet; onClicked: { shell.detailZone = 0; shell.detailButton = 0; shell.detailAction(); shell.takeFocus(); } }
+            TvButton { width: 220; height: 58; text: "Depuis le début"; visible: !!api.detail.viewOffset && api.detail.type !== "show" && api.detail.type !== "season"; highlighted: shell.detailZone === 0 && shell.detailButton === 1 && !shell.sheet; onClicked: { shell.detailZone = 0; shell.detailButton = 1; shell.detailAction(); shell.takeFocus(); } }
+            TvButton { width: 250; height: 58; visible: !api.detail.cloudOnly; text: api.detail.viewCount ? "Marquer non vu" : "Marquer vu"; icon: "check"; highlighted: shell.detailZone === 0 && shell.detailButton === 2 && !shell.sheet; onClicked: { api.markWatched(); shell.takeFocus(); } }
+            TvButton { width: 100; height: 58; text: "Infos"; highlighted: shell.detailZone === 0 && shell.detailButton === 3 && !shell.sheet; onClicked: { shell.sheet = "info"; shell.takeFocus(); } }
+            TvButton { width: 140; height: 58; text: "Retour"; highlighted: shell.detailZone === 0 && shell.detailButton === 4 && !shell.sheet; onClicked: { shell.detailOpen = false; shell.takeFocus(); } }
+        }
+        Row {x:94;y:624;spacing:12;Repeater {model:shell.detailActions;delegate:TvButton {width:196;height:46;text:modelData.title;textSize:17;highlighted:shell.detailZone===1 && shell.detailSecondary===index && !shell.sheet;onClicked:{shell.detailZone=1;shell.detailSecondary=index;shell.detailAction();shell.takeFocus();}}}}
+        Text { x: 806; y: 682; width: 380; text: "Retour  Revenir aux affiches"; font.family: typeface.name; font.pixelSize: 15; color: "#9d9d9d"; horizontalAlignment: Text.AlignRight }
+    }
+
+    Rectangle { anchors.fill: parent; color: "#6b000000"; visible: !!shell.dropdown; MouseArea { anchors.fill: parent; onClicked: { shell.closeDropdown(); shell.takeFocus(); } } }
+    DropdownMenu {
+        id: filterMenu; objectName: "filterMenu"
+        visible: !!shell.dropdown; x: shell.dropdown==="view" ? 96 : shell.filterButton === 0 ? 96 : shell.filterButton === 1 ? 262 : 552; y: shell.dropdown==="view" ? 78 : 148
+        width: 330; title: shell.dropdown==="view" ? "AFFICHER" : shell.dropdown === "status" ? "STATUT" : shell.dropdown === "sort" ? "TRIER PAR" : "GENRE"
+        options: shell.dropdownOptions; focusedIndex: shell.dropdownIndex; selectedIndex: shell.dropdownSelected; loading: shell.genrePending
+        onChosen: { shell.applyFilter(index); shell.takeFocus(); }
+    }
+    Rectangle {
+        anchors.fill: parent; color: "#da000000"; visible: !!shell.sheet && shell.sheet !== "search" && shell.sheet !== "settings"
+        Rectangle {
+            x: shell.sheet === "synopsis" ? 180 : 320; y: 86; width: shell.sheet === "synopsis" ? 920 : 640; height: 548; radius: 14; color: "#303030"; border.color: "#505050"
+            Text { x: 36; y: 28; width: parent.width - 72; text: shell.sheet === "synopsis" ? Plex.label(api.detail) : shell.sheet === "info" ? "Informations du média" : shell.sheet === "trailers" ? "Bandes-annonces" : shell.sheet==="extras" ? "Bonus" : shell.sheet==="actors" ? "Distribution · Titres dans cette bibliothèque" : shell.sheet==="about" ? "À propos" : "Compte"; font.family: typeface.name; font.pixelSize: 28; color: "#f3f3f3"; elide: Text.ElideRight }
+            ListView { x: 32; y: 106; width: 576; height: 350; spacing: 12; visible: ["trailers","actors","extras"].indexOf(shell.sheet)>=0; clip: true; interactive: false; model: shell.sheetOptions; currentIndex: shell.sheetIndex; highlightRangeMode: ListView.ApplyRange
+                delegate: TvButton { width: 576; height: 58; text: modelData.title; highlighted: shell.sheetIndex === index; onClicked: { shell.sheetIndex = index; shell.sheetAction(); shell.takeFocus(); } }
+            }
+            Text { x: 36; y: 78; width: parent.width - 72; visible: shell.sheet === "account"; text: (api.profileName ? api.profileName+" · " : "")+api.serverName + " · " + api.connectionLabel; font.family: typeface.name; font.pixelSize: 18; color: "#bababa";elide:Text.ElideRight }
+            ListView { x: 32; y: 124; width: 576; height: 350; spacing: 10; visible: shell.sheet === "account";clip:true;interactive:false;currentIndex:shell.sheetIndex;highlightRangeMode:ListView.ApplyRange
+                model: shell.accountActions
+                delegate: TvButton { width: 576; height: 58; text: modelData.title; highlighted: shell.sheetIndex === index; onClicked: { shell.sheetIndex = index; shell.sheetAction(); shell.takeFocus(); } }
+            }
+            Flickable { id: synopsis; objectName: "synopsis"; x: 36; y: 92; width: parent.width - 72; height: 354; clip: true; visible: shell.sheet === "synopsis"; interactive: false; contentHeight: synopsisText.height
+                Text { id: synopsisText; width: synopsis.width; text: api.detail.cloudOnly ? "Ce titre fait partie de votre liste de suivis Plex. Il n’est pas disponible dans les bibliothèques de ce serveur." : api.detail.summary || "Aucun résumé disponible."; wrapMode: Text.Wrap; font.family: typeface.name; font.pixelSize: 24; lineHeight: 1.4; color: "#dadada" }
+            }
+            Text { x: 36; y: 122; width: parent.width - 72; visible: shell.sheet === "info"; text: Plex.technicalInfo(api.detail); wrapMode: Text.Wrap; font.family: typeface.name; font.pixelSize: 22; lineHeight: 1.6; color: "#ddd" }
+            Text {x:36;y:112;width:parent.width-72;visible:shell.sheet==="about";text:"Plex pour Devialet · Version 0.5.0 en développement\n\nClient indépendant, non officiel. Un compte Plex et un serveur accessible sont nécessaires.\n\nLa connexion et les réglages sont mémorisés sur ce Player. La déconnexion efface les jetons de ce Player.\n\nAucun service publicitaire ni mesure d’audience ajouté par ce client. Les échanges passent par Plex et votre serveur.";wrapMode:Text.Wrap;font.family:typeface.name;font.pixelSize:19;color:"#dddddd";lineHeight:1.2}
+            Text { x: 36; y: 494; text: shell.sheet === "info" ? "Retour  Fermer" : shell.sheet === "synopsis" ? "Flèches  Lire la suite     ·     Retour  Fermer" : "Flèches  Choisir     ·     OK  Valider     ·     Retour  Fermer"; font.family: typeface.name; font.pixelSize: 16; color: "#aeaeae" }
+        }
+    }
+    SettingsPanel {
+        anchors.fill: parent; visible: shell.sheet === "settings"; api: shell.api; selectedIndex: shell.sheetIndex
+        backdrop: shell.settingsImage
+        onChosen: { shell.sheetIndex = index; shell.sheetAction(); shell.takeFocus(); }
+    }
+    Rectangle { x: 850; y: 42; width: 340; height: 54; radius: 8; color: "#f0181818"; border.color: "#65ffe3"; visible: !!api.notice
+        Text { anchors.centerIn: parent; text: api.notice; font.family: typeface.name; font.pixelSize: 17; color: "#fcfcfc" }
+    }
+    Rectangle {
+        anchors.fill: parent; color: "#f2080808"; visible: shell.sheet === "search"
+        Text { x: 120; y: 65; text: "Rechercher dans toutes les bibliothèques"; font.family: typeface.name; font.pixelSize: 32; color: "white" }
+        Rectangle { x: 120; y: 139; width: 1040; height: 70; color: "#454545"; radius: 4
+            Text { x: 22; anchors.verticalCenter: parent.verticalCenter; width: 995; text: shell.searchDraft || "Titre du film ou de la série"; font.family: typeface.name; font.pixelSize: 26; color: shell.searchDraft ? "white" : "#aaa"; elide: Text.ElideLeft }
+        }
+        Grid { x: 120; y: 246; columns: 10; spacing: 10
+            Repeater { model: shell.keyboardKeys
+                Rectangle { width: 95; height: 64; radius: 4; color: shell.keyboardIndex === index ? "white" : "#454545"
+                    Text { anchors.centerIn: parent; text: modelData; font.family: typeface.name; font.pixelSize: index < 36 ? 24 : 13; color: shell.keyboardIndex === index ? "#222" : "#eee" }
+                    MouseArea { anchors.fill: parent; onClicked: { shell.keyboardIndex = index; shell.searchKey(); shell.takeFocus(); } }
+                }
+            }
+        }
+        Text { x: 120; y: 602; text: "Flèches  Choisir une lettre     OK  Valider     Retour  Fermer"; font.family: typeface.name; font.pixelSize: 18; color: "#aaa" }
+    }
+    Rectangle {
+        anchors.fill: parent; color: "#ed000000"; visible: !!api.error
+        Column { anchors.centerIn: parent; width: 840; spacing: 28
+            Text { text: "Action indisponible"; color: "#f5f5f5"; font.family: typeface.name; font.pixelSize: 38; font.weight: Font.DemiBold }
+            Text { width: parent.width; text: api.error; color: "#c6c6c6"; font.family: typeface.name; font.pixelSize: 25; wrapMode: Text.Wrap; lineHeight: 1.3 }
+            Row { spacing: 18
+                TvButton { text: "Réessayer"; width: 240; height: 58; highlighted: shell.errorChoice === 0; onClicked: { api.retry(); shell.takeFocus(); } }
+                TvButton { text: "Retour"; width: 170; height: 58; highlighted: shell.errorChoice === 1; onClicked: shell.back() }
+            }
+        }
+    }
+    Text { visible: (api.busy || api.homeLoading) && isLibrary && !shell.dropdown && !api.error && shell.recommended; x: 930; y: 682; width: 298; horizontalAlignment: Text.AlignRight; text: "Chargement…"; font.family: typeface.name; font.pixelSize: 16; color: "#59d6a6" }
+}
