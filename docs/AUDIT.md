@@ -45,6 +45,7 @@ Dans la colonne P2F, « annoncé » signifie uniquement documenté par son auteu
 | Catalogue gratuit Plex / Discover complet | ND | Services cloud selon client | Non implémenté ; Watchlist seule ne remplace pas Discover |
 | Installation et mises à jour | FreeStore annoncé | Distribution de chaque plateforme | Lanceur développeur et générateur .fbxqml ; installation Store non validée |
 | Utilisation hors du domicile | ND | Accès distant Plex | Découverte HTTPS/relais prévue ; aucune recette complète sur un autre réseau dans cet audit |
+| Démarrage local sans Internet | ND | Dépend du client et de sa session | Non pris en charge : restauration et découverte nécessitent actuellement les services Plex |
 
 Les dépendances de repères et d’extras sont décrites par Plex : [génériques](https://support.plex.tv/articles/credits-detection/), [Cinema Trailers et extras](https://support.plex.tv/articles/202934883-cinema-trailers-extras/). Les [droits de lecture distante](https://support.plex.tv/articles/requirements-for-remote-playback-of-personal-media/) doivent aussi être vérifiés pour le compte et le serveur utilisés.
 
