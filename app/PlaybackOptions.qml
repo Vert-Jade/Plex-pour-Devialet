@@ -42,8 +42,8 @@ FocusScope {
     }
     FontLoader { id: typeface;source:"fonts/NotoSans-Regular.ttf" }
     Rectangle { anchors.fill:parent;color:"#e8000000" }
-    Text { x:110;y:48;text:submenu ? rows[row].title : "Options de lecture";font.family:typeface.name;font.pixelSize:34;font.weight:Font.DemiBold;color:"white" }
-    Text { x:112;y:105;width:1056;text:session.error || session.status;elide:Text.ElideRight;font.family:typeface.name;font.pixelSize:17;color:session.error ? "#ffbaba" : "#59d6a6" }
+    Text { textFormat: Text.PlainText; x:110;y:48;text:submenu ? rows[row].title : "Options de lecture";font.family:typeface.name;font.pixelSize:34;font.weight:Font.DemiBold;color:"white" }
+    Text { textFormat: Text.PlainText; x:112;y:105;width:1056;text:session.error || session.status;elide:Text.ElideRight;font.family:typeface.name;font.pixelSize:17;color:session.error ? "#ffbaba" : "#59d6a6" }
     ListView {
         id: optionList; objectName: "optionList"
         x:98;y:148;width:1084;height:456;clip:true;interactive:false;spacing:9
@@ -57,11 +57,11 @@ FocusScope {
             Rectangle { x:14;y:12;width:1056;height:59;radius:7;color:parent.selected ? "#f4f4f4" : "#202020";border.color:parent.selected ? "#59d6a6" : "#404040"
                 GlowFrame { visible:parent.parent.selected;corner:7 }
                 Image { x:8;y:3;width:94;height:53;visible:panel.submenu==="chapter" && !!modelData.thumb;source:visible ? session.api.imageUrl(modelData.thumb,188,106) : "";fillMode:Image.PreserveAspectCrop;asynchronous:true }
-                Text { x:panel.submenu==="chapter" ? 116 : 20;anchors.verticalCenter:parent.verticalCenter;width:panel.submenu ? 900 : 315;text:modelData.title;font.family:typeface.name;font.pixelSize:20;color:parent.parent.selected ? "#111111" : "white";elide:Text.ElideRight }
-                Text { x:340;anchors.verticalCenter:parent.verticalCenter;width:690;visible:!panel.submenu;text:panel.submenu ? "" : panel.valueTitle(modelData);horizontalAlignment:Text.AlignRight;font.family:typeface.name;font.pixelSize:18;color:parent.parent.selected ? "#145a40" : "#59d6a6";elide:Text.ElideRight }
+                Text { textFormat: Text.PlainText; x:panel.submenu==="chapter" ? 116 : 20;anchors.verticalCenter:parent.verticalCenter;width:panel.submenu ? 900 : 315;text:modelData.title;font.family:typeface.name;font.pixelSize:20;color:parent.parent.selected ? "#111111" : "white";elide:Text.ElideRight }
+                Text { textFormat: Text.PlainText; x:340;anchors.verticalCenter:parent.verticalCenter;width:690;visible:!panel.submenu;text:panel.submenu ? "" : panel.valueTitle(modelData);horizontalAlignment:Text.AlignRight;font.family:typeface.name;font.pixelSize:18;color:parent.parent.selected ? "#145a40" : "#59d6a6";elide:Text.ElideRight }
                 MouseArea { anchors.fill:parent;onClicked:{ if(panel.submenu) panel.choice=index;else panel.row=index;panel.activate();panel.forceActiveFocus(); } }
             }
         }
     }
-    Text { x:112;y:626;width:1056;text:(panel.convertible ? "La lecture reprend au même endroit après un changement." : "Ce bonus utilise la lecture directe ; les réglages de conversion ne sont pas disponibles.")+"\nFlèches  Naviguer     OK  Choisir     Retour  Reprendre la vidéo";font.family:typeface.name;font.pixelSize:17;lineHeight:1.3;color:"#bbbbbb" }
+    Text { textFormat: Text.PlainText; x:112;y:626;width:1056;text:(panel.convertible ? "La lecture reprend au même endroit après un changement." : "Ce bonus utilise la lecture directe ; les réglages de conversion ne sont pas disponibles.")+"\nFlèches  Naviguer     OK  Choisir     Retour  Reprendre la vidéo";font.family:typeface.name;font.pixelSize:17;lineHeight:1.3;color:"#bbbbbb" }
 }

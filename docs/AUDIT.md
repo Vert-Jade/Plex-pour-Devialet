@@ -1,4 +1,4 @@
-# Audit comparatif — 14 octobre 2026
+# Audit comparatif — 15 octobre 2026
 
 ## Conclusion
 
@@ -28,8 +28,8 @@ Dans la colonne P2F, « annoncé » signifie uniquement documenté par son auteu
 | Recherche adulte | ND | Dépend des profils/services | Option de résultats explicites, bibliothèques signalables ; dépend des métadonnées, pas un contrôle parental |
 | Watchlist | ND | Ma liste | API cloud, résolution locale, ajout/retrait ; écritures couvertes par simulations |
 | Collections | Annoncé | Collections | Parcours exposé et endpoint réel testé |
-| Playlists | Annoncé | Playlists | Endpoints internes partiels, aucune gestion complète exposée ; reste à réaliser |
-| Navigation par dossiers | Annoncé | Selon bibliothèque/client | Absente |
+| Playlists | Annoncé | Playlists | Consultation des listes existantes et de leurs titres depuis le menu de bibliothèque ; édition, création et enchaînement de la playlist absents. Aucun contenu de playlist réel disponible sur le serveur de recette |
+| Navigation par dossiers | Annoncé | Selon bibliothèque/client | Accessible depuis Bibliothèque, réponse JSON et retour parent vérifiés sur Devialet ; pagination locale |
 | Fiches et distribution | Annoncé | Fiches détaillées | Résumé, technique, distribution ; filmographie limitée à la bibliothèque source, pas de biographie acteur complète |
 | Thèmes musicaux | Annoncé | Selon client/serveur | Thème du titre/série, volume et activation ; source requise côté serveur |
 | Bandes-annonces et bonus | ND | Extras Plex | Extras jouables du serveur ; une bande-annonce avant film en option, pas tout le programme Cinema Trailers officiel |
@@ -61,13 +61,28 @@ Les dépendances de repères et d’extras sont décrites par Plex : [génériqu
 - Masquage d’un nom de dossier spécifique remplacé par épingles et réglages génériques de recherche ; ligne Retour redondante retirée des profils.
 - Refus des chemins média traversants/absolus et contrôle du contenu exact de l’index Git avant diffusion.
 
+## Corrections supplémentaires de la version 0.5.1
+
+- Changement de serveur : purge des caches, résultats et requêtes du serveur précédent, même lorsque les identifiants des médias se ressemblent.
+- Transport : exceptions natives et réponses JSON malformées libèrent l’état de chargement ; une réponse tardive ou répétée ne termine pas la nouvelle requête.
+- Profil temporaire expiré : retour au choix Home sans perdre le compte racine en mémoire et sans rétablir ses droits silencieusement. Rafraîchir ou annuler le choix du profil conserve la bonne destination.
+- Préférences invalides : valeurs normalisées au démarrage, JSON corrompu récupéré sans effacer une connexion valide.
+- Affichage : métadonnées en texte brut ; le serveur ne peut plus injecter des balises de présentation ou des images dans ces textes.
+- Statut vu/non vu : mise à jour cohérente dans l’accueil, la recherche et la Watchlist après confirmation serveur.
+- Lecture : échec final libérant la source et la session, arrêt des encodeurs borné, déplacement direct borné même en pause, commandes Lecture/Pause idempotentes.
+- Identité publique centralisée, logo jade conservé après « pour », sélecteur de vues sans glyphe manquant et véritable icône Dossier.
+
+Les responsabilités et invariants du code sont décrits dans [ARCHITECTURE.md](ARCHITECTURE.md).
+
 ## Niveaux de preuve
 
 1. **Tests JavaScript simulés** : authentification, choix de profil/PIN, isolation des données, pagination, Watchlist, progression, langues, marqueurs, conversion, reprises, réessais et épingles/recherche adulte. Ils ne prouvent pas les écritures réelles vers Plex.
 2. **Tests Python locaux** : ressources du lanceur, refus des chemins privés, paquet reproductible complet, contrôle de publication. Le nombre exact et les résultats sont consignés dans `distribution/VERIFICATIONS.txt` et par la CI.
 3. **QML sur PC, données fictives, 720p/1080p** : navigation, focus, connexion/checkbox, profils/PIN, listes, menus, réglages et options de chapitres. Les captures publiques proviennent de ce banc, jamais d’une médiathèque privée.
-4. **Catalogue sur Devialet réel** : recherche, collections, métadonnées enrichies, requête acteur, lecture XML des profils Home et recherche de l’épisode suivant. Contrôle dédié sans changement de compte ni écriture d’historique.
+4. **Catalogue sur Devialet réel** : recherche, collections, métadonnées enrichies, requête acteur, lecture XML des profils Home et recherche de l’épisode suivant. Contrôle dédié sans changement de compte ni écriture d’historique. La recette du 15 octobre ajoute le parcours réel des dossiers et le point d’accès des playlists (liste vide sur le serveur de test).
 5. **Lecture sur Devialet réel** : image/son en direct, reprise, saut d’intro contrôlé, blocage simulé puis conversion, changement audio en pause, déplacement, deuxième repli et arrêt des sessions. L’application complète a aussi affiché l’après-lecture et lancé l’épisode suivant avec image/son après une fin injectée par le test. Ce dernier essai ne remplace pas la lecture naturelle de deux épisodes complets. Les marqueurs image/son du backend ne prouvent pas la qualité acoustique d’un mix surround.
+Le scénario de lecture a été renforcé avec des commandes Lecture/Pause répétées, un échec final injecté et une action Réessayer. Une variante de nettoyage créant/détruisant des composants QML temporaires a interrompu plusieurs essais matériels. Elle a été écartée après un essai comparatif ; la méthode retenue conserve des transports indépendants, avec expiration et nombre borné. Cette comparaison ne constitue pas une analyse interne du firmware Free.
+
 6. **Essais de codecs antérieurs dans le même projet** : échantillons HEVC, AV1, DTS, ASS et PGS ; leurs traces privées existent. Pas de matrice exhaustive ni nouvelle revalidation de chaque codec à chaque changement d’interface.
 
 ## Avant une candidature Store stable
@@ -79,10 +94,11 @@ Les dépendances de repères et d’extras sont décrites par Plex : [génériqu
 | P0 | Films entiers et épisodes consécutifs | Pas de fermeture, son/sous-titres synchronisés, progression correcte dans un autre client |
 | P0 | Panne réseau et arrêt brutal | Erreur récupérable, absence de sessions orphelines, limite de dernière progression documentée |
 | P0 | Autre réseau, débit faible et relais | Association, navigation, conversion et reprise utilisables avec les droits Plex requis |
+| P0 | Identité publique et marques | Accord écrit pour le logo Plex recoloré et son icône ; examen du nom et de la présentation. Voir [NOTICE.md](../NOTICE.md) |
 | P0 | Distribution FreeFactory | Compte actif, identifiant reconnu, métadonnées/visuels conformes, droits de marque examinés |
 | P0 | Installation FreeStore et mise à jour réelle | Application durable, favoris, paramètres conservés lors d’une mise à jour |
 | P1 | Recherche/filtrage sur très gros serveur | Temps acceptable, listes complètes, aucune réponse ancienne après annulation |
 | P1 | Tests TV visuels et télécommande physique | Lisibilité et focus sur longues listes, absence de débordement à 95 %, scènes vides/erreurs correctes |
-| P1 | Compléments de parité | Playlists utilisables, dossiers, aperçus BIF, sous-titres en ligne/décalage, PlayQueue |
+| P1 | Compléments de parité | Édition/enchaînement des playlists, aperçus BIF, sous-titres en ligne/décalage, PlayQueue |
 
 L’état ouvert de ces points est volontairement visible dans le dépôt. Une publication du code permet la collaboration ; elle ne certifie pas une application Store achevée.

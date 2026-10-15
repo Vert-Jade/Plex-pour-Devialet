@@ -9,9 +9,10 @@ Utiliser l’onglet Security du dépôt, « Report a vulnerability », lorsqu’
 ## Protections présentes
 
 - Association Plex par code ; aucun mot de passe demandé dans l’application.
-- Option de persistance explicite, déconnexion avec confirmation, purge du cache lors d’un changement de profil.
+- Option de persistance explicite, déconnexion avec confirmation, purge du cache lors d’un changement de profil ou de serveur.
 - Échec de PIN conservant le profil courant ; jeton de profil révoqué redirigeant vers le choix du profil, sans repli sur le compte propriétaire.
 - HTTPS cloud/distant, vérification de l’identité du serveur avant envoi de son jeton, refus des URL média absolues et chemins traversants.
+- Métadonnées affichées en texte brut, sans interprétation des balises HTML ni de leurs images intégrées.
 - Images externes limitées à une liste de domaines, sans jeton de compte/serveur ajouté.
 - Requêtes annulables, délais bornés et générations empêchant les réponses tardives de restaurer d’anciennes données.
 - Lanceur à liste de ressources explicite ; configuration QA temporaire servie au seul Player sélectionné.

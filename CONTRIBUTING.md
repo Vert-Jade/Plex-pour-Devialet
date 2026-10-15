@@ -2,6 +2,8 @@
 
 Les corrections et reprises du projet sont bienvenues. Décrire le problème, les étapes de reproduction, le modèle du Player et les résultats observés. Utiliser des titres et médias de démonstration dans les captures publiques.
 
+Voir aussi les [contrats et responsabilités des modules](docs/ARCHITECTURE.md).
+
 ## Organisation
 
 - `app/` : application QML native et ressources embarquées.
@@ -22,7 +24,7 @@ python -X utf8 tools/check-catalog.py
 python -X utf8 tools/check-playback.py --integration --direct
 ```
 
-Les essais remplacent temporairement l’application visible sur la TV et servent des accès en mémoire uniquement à ce Player. Le contrôle catalogue utilise un identifiant d’application distinct. Le contrôle de lecture emploie l’application complète avec les écritures de progression neutralisées et restaure les pistes d’origine après l’essai. Relancer ensuite `Lancer-Cinema.cmd`. Ne pas lancer ces outils sur le serveur d’un tiers ni pendant une lecture en cours.
+Les essais remplacent temporairement l’application visible sur la TV et servent des accès en mémoire uniquement à ce Player. Les deux contrôles utilisent des identifiants d’application distincts, sans modifier la connexion ni les préférences de l’application normale. Le contrôle de lecture emploie l’application complète avec les écritures de progression neutralisées et restaure les pistes d’origine après l’essai. Relancer ensuite `Lancer-Cinema.cmd`. Ne pas lancer ces outils sur le serveur d’un tiers ni pendant une lecture en cours.
 
 Un test simulé ne valide ni une lecture physique, ni un accès distant, ni une installation Store. Indiquer précisément le niveau de preuve dans chaque contribution. Les cas de recette manquants sont dans `docs/AUDIT.md`.
 

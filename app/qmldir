@@ -16,3 +16,4 @@ PlaybackSession 1.0 PlaybackSession.qml
 PlaybackOptions 1.0 PlaybackOptions.qml
 ProfileScreen 1.0 ProfileScreen.qml
 LibraryScreen 1.0 LibraryScreen.qml
+Brand 1.0 Brand.qml

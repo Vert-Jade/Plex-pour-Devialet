@@ -7,6 +7,18 @@ vm.createContext(plex);
 vm.runInContext(fs.readFileSync('app/Plex.js','utf8').replace('.pragma library',''),plex);
 const intro = {type:'intro',startTimeOffset:10000,endTimeOffset:80000};
 const credits = {type:'credits',startTimeOffset:500000,endTimeOffset:550000};
+
+test('dedicated play/pause commands are idempotent and do not restart a failed source',()=>{
+    let plays=0,pauses=0;
+    const context={pausedIntent:false,switchingSource:false,stream:{error:''},player:{play(){plays++;},pause(){pauses++;}}};
+    const source=fs.readFileSync('app/main.qml','utf8');
+    const start=source.indexOf('    function setPlaybackPaused('),end=source.indexOf('    function openPlaybackOptions',start);
+    vm.createContext(context);vm.runInContext(source.slice(start,end),context);
+    context.setPlaybackPaused(true);context.setPlaybackPaused(true);assert.equal(pauses,1);
+    context.setPlaybackPaused(false);context.setPlaybackPaused(false);assert.equal(plays,1);
+    context.setPlaybackPaused(true);context.stream.error='Failed';context.setPlaybackPaused(false);assert.equal(plays,1);
+    context.stream.error='';context.switchingSource=true;context.setPlaybackPaused(true);context.setPlaybackPaused(false);assert.equal(plays,1);
+});
 test('autoplay pauses after two hours without interaction for long episodes',()=>{
     assert.equal(plex.allowNextCountdown({duration:1320000},0,7199999),true);
     assert.equal(plex.allowNextCountdown({duration:1320000},0,7200000),false);

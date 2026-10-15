@@ -42,6 +42,7 @@ Application {
     PlaybackSession {
         id: stream; api: plex
         onSourceStopping: {
+            pauseAfterStart.stop();
             root.switchingSource=true;root.clearingPlayer=true;root.resumePending=false;root.resumeSeekIssued=false;root.playbackHealth=null;root.controlsVisible=true;
             player.stop();player.source="";root.clearingPlayer=false;
             root.playbackMessage="Préparation de la lecture…";watchdog.restart();
@@ -51,7 +52,13 @@ Application {
             root.resumeOffset=offset;root.resumePending=!streaming && offset>0;
             watchdog.restart();player.source=url;player.play();
         }
-        onFailed: { watchdog.stop();root.switchingSource=false;root.playbackMessage=message;root.controlsVisible=true; }
+        onFailed: {
+            watchdog.stop();seekDelay.stop();root.pendingSeek=-1;
+            root.resumePending=false;root.resumeSeekIssued=false;root.playbackHealth=null;
+            root.clearingPlayer=true;root.switchingSource=true;player.stop();player.source="";
+            root.clearingPlayer=false;root.switchingSource=false;
+            root.playbackMessage=message;root.controlsVisible=true;
+        }
     }
     function stopPlayback(completed) {
         if(completed)lastPosition=videoDuration;
@@ -70,15 +77,21 @@ Application {
     function playbackFailure() {
         if(!watching || clearingPlayer) return;
         watchdog.stop();controlsVisible=true;
-        if(!stream.fallback(lastPosition)) { switchingSource=false;playbackMessage="Lecture impossible avec ces réglages. Menu : changer la qualité, les pistes ou réessayer."; }
+        if(!stream.fallback(lastPosition)) stream.fail("Lecture impossible avec ces réglages. Menu : changer la qualité, les pistes ou réessayer.");
     }
     function seekPlayback(position, immediate) {
         var target=Math.max(0,Math.min(Math.max(0,videoDuration-1000),Math.floor(position)));
         if(stream.streaming) {
             pendingSeek=target;lastPosition=target;
             if(immediate) { seekDelay.stop();pendingSeek=-1;stream.prepare(target); } else seekDelay.restart();
-        } else if(player.seekable) { resumeOffset=target;lastPosition=target;resumeSeekIssued=false;resumePending=true;playbackHealth=null; }
-        else stream.fallback(target);
+        } else if(player.seekable) { resumeOffset=target;lastPosition=target;resumeSeekIssued=false;resumePending=true;resumeDeadline.restart();playbackHealth=null; }
+        else if(!stream.fallback(target)) stream.fail("Ce fichier ne permet pas ce déplacement. Réessayez depuis les options de lecture.");
+    }
+    function setPlaybackPaused(paused) {
+        if (pausedIntent === paused) return;
+        pausedIntent=paused;
+        if (pausedIntent) player.pause();
+        else if(!switchingSource && !stream.error) player.play();
     }
     function openPlaybackOptions() {
         if(optionsOpen) return;
@@ -96,7 +109,8 @@ Application {
         onPlaying: {
             if (root.watching) {
                 root.switchingSource=false;root.playbackMessage = ""; watchdog.stop(); root.reveal(); console.log("DEVIALET_PLAYBACK_STARTED");
-                if(root.pausedIntent) player.pause();
+                // The embedded backend must finish its Playing transition first.
+                if(root.pausedIntent) pauseAfterStart.restart();
             } else console.log("DEVIALET_THEME_STARTED");
         }
         onPositionChanged: { if (root.watching && !root.switchingSource && !root.resumePending && root.pendingSeek<0) root.lastPosition = Math.min(root.videoDuration,root.streamBase+position); }
@@ -119,6 +133,9 @@ Application {
         }
     }
     Timer { id: watchdog; interval: 45000; onTriggered: root.playbackFailure() }
+    Timer { id: pauseAfterStart; interval:1; onTriggered:if(root.watching && root.pausedIntent && !root.switchingSource && player.playbackState===MediaPlayer.PlayingState)player.pause() }
+    // A seek may never complete even when the user has paused playback.
+    Timer { id: resumeDeadline; interval:12000; running:root.watching && root.resumePending && !root.switchingSource; onTriggered:root.playbackFailure() }
     Timer { interval:1000;repeat:true;running:root.watching && !root.switchingSource && !root.pausedIntent && !root.optionsOpen && !root.playbackMessage
         onRunningChanged: if(!running)root.playbackHealth=null
         onTriggered: { root.playbackHealth=Playback.monitor(root.playbackHealth,root.lastPosition);if(root.playbackHealth.failed)root.playbackFailure(); }
@@ -169,7 +186,7 @@ Application {
             id: playback; anchors.fill: parent; visible: root.watching
             Rectangle {
                 x: 970; y: 58; width: 240; height: 52; radius: 5; color: "#ee303030"; visible: !!root.skipNotice
-                Text { anchors.centerIn: parent; text: root.skipNotice; color: "#59d6a6"; font.family: typeface.name; font.pixelSize: 21 }
+                Text { textFormat: Text.PlainText; anchors.centerIn: parent; text: root.skipNotice; color: "#59d6a6"; font.family: typeface.name; font.pixelSize: 21 }
             }
             Keys.onPressed: {
                 root.lastInteraction=Date.now();
@@ -178,18 +195,18 @@ Application {
                 else if (event.key === Qt.Key_Menu || event.key === Qt.Key_Up || event.key === Qt.Key_Down) { root.openPlaybackOptions();event.accepted=true; }
                 else if (event.key === Qt.Key_Left || event.key === Qt.Key_Right) { root.seekPlayback(root.lastPosition + (event.key === Qt.Key_Left ? -10000 : 10000),false); event.accepted = true; }
                 else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter || event.key === Qt.Key_Select || event.key === Qt.Key_Space || event.key === Qt.Key_MediaTogglePlayPause || event.key === Qt.Key_MediaPlay || event.key === Qt.Key_MediaPause) {
-                    root.pausedIntent=!root.pausedIntent;
-                    if (root.pausedIntent) player.pause(); else if(!root.switchingSource && !stream.error) player.play(); event.accepted = true;
+                    root.setPlaybackPaused(event.key===Qt.Key_MediaPlay ? false : event.key===Qt.Key_MediaPause ? true : !root.pausedIntent);
+                    event.accepted = true;
                 }
             }
             Rectangle {
                 x: 0; y: 492; width: 1280; height: 228; radius: 0; color: "#ed202020"; visible: root.controlsVisible
-                Text { font.family: typeface.name; x: 68; y: 22; width: 1144; text: Plex.label(root.playingItem); elide: Text.ElideRight; color: "#f5f5f5"; font.pixelSize: 28; font.weight: Font.DemiBold }
-                Text { font.family: typeface.name; x: 68; y: 66; width: 1144; text: root.playbackMessage || (root.pausedIntent ? "En pause · " : "")+stream.status; color: "#cccccc"; font.pixelSize: 18; wrapMode: Text.Wrap }
-                Text { font.family:typeface.name;x:68;y:99;text:root.pausedIntent ? "" : "Fin vers "+Qt.formatTime(new Date(Date.now()+Math.max(0,root.videoDuration-root.lastPosition)),"hh:mm");color:"#aaaaaa";font.pixelSize:14 }
+                Text { textFormat: Text.PlainText; font.family: typeface.name; x: 68; y: 22; width: 1144; text: Plex.label(root.playingItem); elide: Text.ElideRight; color: "#f5f5f5"; font.pixelSize: 28; font.weight: Font.DemiBold }
+                Text { textFormat: Text.PlainText; font.family: typeface.name; x: 68; y: 66; width: 1144; text: root.playbackMessage || (root.pausedIntent ? "En pause · " : "")+stream.status; color: "#cccccc"; font.pixelSize: 18; wrapMode: Text.Wrap }
+                Text { textFormat: Text.PlainText; font.family:typeface.name;x:68;y:99;text:root.pausedIntent ? "" : "Fin vers "+Qt.formatTime(new Date(Date.now()+Math.max(0,root.videoDuration-root.lastPosition)),"hh:mm");color:"#aaaaaa";font.pixelSize:14 }
                 Rectangle { x: 68; y: 122; width: 1144; height: 5; radius: 2; color: "#555555"; Rectangle { height: parent.height; width: parent.width * Math.min(1, root.lastPosition / Math.max(1, root.videoDuration)); color: "#59d6a6" } }
-                Text { font.family: typeface.name; x: 68; y: 150; text: "OK  Pause     Flèches  Avancer / Reculer     Menu  Audio, sous-titres et qualité"; color: "#cccccc"; font.pixelSize: 15 }
-                Text { font.family: typeface.name; anchors.right: parent.right; anchors.rightMargin: 68; y: 150; text: Plex.clock(root.lastPosition) + " / " + Plex.clock(root.videoDuration); color: "#59d6a6"; font.pixelSize: 20 }
+                Text { textFormat: Text.PlainText; font.family: typeface.name; x: 68; y: 150; text: "OK  Pause     Flèches  Avancer / Reculer     Menu  Audio, sous-titres et qualité"; color: "#cccccc"; font.pixelSize: 15 }
+                Text { textFormat: Text.PlainText; font.family: typeface.name; anchors.right: parent.right; anchors.rightMargin: 68; y: 150; text: Plex.clock(root.lastPosition) + " / " + Plex.clock(root.videoDuration); color: "#59d6a6"; font.pixelSize: 20 }
             }
         }
         PlaybackOptions {
@@ -202,13 +219,13 @@ Application {
             Rectangle {anchors.fill:parent;color:"#080808"}
             Image {x:540;width:740;height:720;source:plex.imageUrl(root.nextMedia.art || root.nextMedia.thumb || "",1280,720);fillMode:Image.PreserveAspectCrop;asynchronous:true}
             Image {anchors.fill:parent;source:"assets/cinema-shade.svg"}
-            Text {x:96;y:220;text:root.nextMedia.ratingKey ? "ÉPISODE SUIVANT" : "Recherche de l’épisode suivant…";font.family:typeface.name;font.pixelSize:20;color:"#65ffe3"}
-            Text {x:96;y:275;width:900;height:150;text:Plex.label(root.nextMedia);visible:!!root.nextMedia.ratingKey;wrapMode:Text.Wrap;maximumLineCount:3;elide:Text.ElideRight;font.family:typeface.name;font.pixelSize:36;color:"white"}
+            Text { textFormat: Text.PlainText;x:96;y:220;text:root.nextMedia.ratingKey ? "ÉPISODE SUIVANT" : "Recherche de l’épisode suivant…";font.family:typeface.name;font.pixelSize:20;color:"#65ffe3"}
+            Text { textFormat: Text.PlainText;x:96;y:275;width:900;height:150;text:Plex.label(root.nextMedia);visible:!!root.nextMedia.ratingKey;wrapMode:Text.Wrap;maximumLineCount:3;elide:Text.ElideRight;font.family:typeface.name;font.pixelSize:36;color:"white"}
             Row {x:96;y:484;spacing:20
                 TvButton {width:320;height:60;text:root.nextSeconds>0 ? "Lire dans "+root.nextSeconds+" secondes" : "Lire maintenant";available:!!root.nextMedia.ratingKey;highlighted:root.nextChoice===0;onClicked:root.startNext()}
                 TvButton {width:240;height:60;text:"Annuler";highlighted:root.nextChoice===1;onClicked:root.cancelNext()}
             }
-            Text {x:96;y:600;text:"Retour  Annuler l’enchaînement";font.family:typeface.name;font.pixelSize:18;color:"#bbbbbb"}
+            Text { textFormat: Text.PlainText;x:96;y:600;text:"Retour  Annuler l’enchaînement";font.family:typeface.name;font.pixelSize:18;color:"#bbbbbb"}
         }
     }
 }

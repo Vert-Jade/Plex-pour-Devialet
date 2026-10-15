@@ -2,7 +2,7 @@ const {test}=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const vm=require('node:vm');
-function library(file){const c={};vm.createContext(c);vm.runInContext(fs.readFileSync(file,'utf8').replace('.pragma library',''),c);return c;}
+function library(file){const c={};if(file.endsWith('/Playback.js'))c.AppInfo=library('app/AppInfo.js');vm.createContext(c);vm.runInContext(fs.readFileSync(file,'utf8').replace('.pragma library','').replace(/^\.import.*$/gm,''),c);return c;}
 const Plex=library('app/Plex.js'),Playback=library('app/Playback.js');
 const item={ratingKey:'42',key:'/library/metadata/42',librarySectionID:'1',duration:600000,Media:[{videoCodec:'hevc',videoResolution:'4k',Part:[{id:10,key:'/library/parts/10/video.mkv',Stream:[{id:1,streamType:2,codec:'truehd',language:'Français',selected:true},{id:2,streamType:2,codec:'dca',language:'Anglais'},{id:3,streamType:3,codec:'pgs',language:'Français',forced:true,selected:true},{id:4,streamType:3,codec:'ass',language:'Anglais'}]}]},{videoCodec:'h264',Part:[{id:11,Stream:[{id:7,streamType:2,codec:'aac',selected:true}]}]}]};
 const accepted={MediaContainer:{generalDecisionCode:1001,transcodeDecisionCode:1001,Metadata:[{Media:[{Part:[{Stream:[{streamType:1,codec:'h264',decision:'transcode'},{streamType:2,codec:'aac',channels:2,decision:'transcode'},{streamType:3,codec:'pgs',decision:'burn'}]}]}]}]}};
@@ -11,11 +11,11 @@ function setup(){
  const s={Plex,Playback,Date,Math,Number,console:{log(){}},media:{},generation:0,sessionId:'',active:false,streaming:false,offset:0,error:'',status:'',retryStage:0,mediaIndex:0,audioId:0,subtitleId:0,qualityIndex:0,modeIndex:0,audioOutput:0,subtitleSize:100,
  api:{serverUrl:'https://server',serverToken:'secret',libraries:[{key:'1'}],connectionLabel:'Réseau local',headers(token){return {'X-Plex-Token':token,'X-Plex-Client-Identifier':'device'};}},
  request:{cancel(){},send(method,url,headers,done,failed){s.pending={method,url,headers,done,failed};}},heartbeat:{cancel(){}},sourceStopping(){events.push('stop');},sourceReady(url,offset,streaming){events.push({url,offset,streaming});},failed(message){events.push({error:message});},
- XMLHttpRequest:function(){this.open=(method,url)=>{this.url=url;};this.setRequestHeader=()=>{};this.send=()=>stops.push(this.url);}
+ cleanupRequests:[],XMLHttpRequest:function(){this.open=(method,url)=>{this.url=url;};this.setRequestHeader=()=>{};this.send=()=>stops.push(this);this.abort=()=>{this.aborted=true;};}
  };
  s.session=s;vm.createContext(s);const src=fs.readFileSync('app/PlaybackSession.qml','utf8');
  // QML declarations sit between the methods; extract balanced function bodies.
- const names=['release','stop','begin','resetTracks','options','fail','prepare','networkFailure','fallback','change'];
+ const names=['release','finishCleanup','pruneCleanup','stop','begin','resetTracks','options','fail','prepare','networkFailure','fallback','change'];
  for(const name of names){let start=src.indexOf('    function '+name+'('),body=src.indexOf('{',start),depth=1,i=body+1;for(;depth;i++){if(src[i]==='{')depth++;if(src[i]==='}')depth--;}vm.runInContext(src.slice(start,i),s);}
  return {s,events,stops};
 }
@@ -108,6 +108,25 @@ test('track labels preserve ASS/PGS, forced and accessibility information',()=>{
  const opts=Playback.trackOptions(item,0,3);assert.equal(opts[0].value,0);assert.match(opts[1].title,/PGS.*Forcés/);assert.match(opts[2].title,/ASS/);
  assert.match(Playback.trackTitle({codec:'srt',hearingImpaired:true}),/Malentendants/);
  assert.equal(Playback.metadataPath({key:'https://foreign.example',ratingKey:'evil'}),'');
+ for(const key of ['/library/metadata/../42','/library/metadata/42?token=secret','/library/metadata/42/children','/library/metadata/%2e%2e/42'])assert.equal(Playback.metadataPath({key}),'');
+});
+
+test('terminal failures release encoders, ignore late decisions, and allow an explicit retry',()=>{
+ const {s,events,stops}=setup();s.begin('',item,60000);s.pending.done({});const old=s.pending;
+ s.fail('Échec de lecture');assert.equal(stops.length,1);assert.equal(s.cleanupRequests.length,1);
+ assert.equal(s.sessionId,'');assert.equal(s.streaming,false);assert.equal(s.active,true);
+ old.done(accepted);assert.equal(events.filter(e=>e.url).length,0);
+ const expiry=s.cleanupRequests[0].expires;s.Date={now:()=>expiry};s.pruneCleanup();assert.equal(stops[0].aborted,true);assert.equal(s.cleanupRequests.length,0);
+ s.change('retry',0,60000);prepare(s);assert.equal(s.error,'');assert.equal(events.at(-1).streaming,true);
+ s.stop();s.XMLHttpRequest.DONE=4;stops.at(-1).readyState=4;stops.at(-1).onreadystatechange();assert.equal(s.cleanupRequests.length,0);
+});
+
+test('encoder cleanup tolerates native transport errors and bounds outstanding requests',()=>{
+ const {s,stops}=setup();s.active=true;
+ for(let i=0;i<20;i++){s.sessionId='session-'+i;s.release();}
+ assert.equal(s.cleanupRequests.length,16);assert.equal(stops.filter(x=>x.aborted).length,4);
+ s.XMLHttpRequest=function(){this.open=()=>{throw Error('transport');};this.abort=()=>{};};
+ s.sessionId='failing';assert.doesNotThrow(()=>s.release());assert.equal(s.sessionId,'');assert.equal(s.cleanupRequests.length,15);
 });
 test('starting an alternate version selects only streams belonging to that version',()=>{
  const {s}=setup();s.begin('https://server/original',item,60000,1);

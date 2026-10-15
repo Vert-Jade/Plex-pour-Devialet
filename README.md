@@ -1,8 +1,8 @@
-# Plex pour Devialet
+# Le Pavillon de Jade pour Plex
 
 Client indépendant, gratuit et à code source ouvert pour regarder les films et séries de son Plex Media Server sur **Freebox Player Devialet**, à la télécommande.
 
-**Version 0.5.0 en développement.** Le code est partageable ; l’application n’est pas encore publiée ni validée sur le FreeStore. La parité complète avec Plex officiel n’est pas acquise. Voir l’[audit comparatif et les preuves](docs/AUDIT.md), les [limites de lecture](docs/PLAYBACK.md) et les [conditions de confidentialité](PRIVACY.md).
+**Version 0.5.1 en développement.** Le code est partageable ; l’application n’est pas encore publiée ni validée sur le FreeStore. La parité complète avec Plex officiel n’est pas acquise. Voir l’[audit comparatif et les preuves](docs/AUDIT.md), les [limites de lecture](docs/PLAYBACK.md) et les [conditions de confidentialité](PRIVACY.md).
 
 Application non officielle, sans affiliation à Plex, Free ou Devialet. Aucun contenu vidéo ni accès à un serveur n’est fourni.
 
@@ -13,7 +13,7 @@ Application non officielle, sans affiliation à Plex, Free ou Devialet. Aucun co
 - Interface française noire avec accents jade, focus télécommande, menus déroulants et zone d’affichage réglable de 90 à 100 %.
 - Association par code sur `plex.tv/link`, option **Rester connecté**, choix des profils Plex Home avec PIN et découverte des serveurs partagés.
 - Bibliothèques de films et séries triées, épinglage par profil et serveur, accueil « Continuer à regarder » puis nouveaux ajouts des bibliothèques épinglées.
-- Watchlist Plex, recherche globale par titre, filtres de bibliothèque, collections, saisons/épisodes, informations techniques, distribution et filmographie dans la bibliothèque courante.
+- Watchlist Plex, recherche globale par titre, filtres de bibliothèque, collections, listes de lecture existantes, dossiers, saisons/épisodes, informations techniques, distribution et filmographie dans la bibliothèque courante.
 - Lecture directe prioritaire, reprise et secours par conversion serveur jusqu’à 1080p. Pistes audio, sous-titres incrustés, versions, qualité, chapitres et heure de fin estimée.
 - Saut des intros et génériques à partir des repères Plex, thèmes musicaux, bandes-annonces et bonus fournis par le serveur.
 - Épisode suivant avec compte à rebours de 15 secondes, annulable ; arrêt de l’automatisme après deux heures sans interaction pour les épisodes longs. Bande-annonce avant un film en option.
@@ -55,6 +55,6 @@ Les outils `check-catalog.py`, `check-playback.py` et `preview-library.py` sont 
 
 ## Participer
 
-Le code original est sous licence MIT. Les polices et marques conservent leurs droits propres : [LICENSE](LICENSE), [NOTICE.md](NOTICE.md), [provenance des ressources](app/assets/SOURCES.md). Les contributions, corrections et reprises du projet sont bienvenues ; voir [CONTRIBUTING.md](CONTRIBUTING.md). Les signalements de sécurité suivent [SECURITY.md](SECURITY.md).
+Le code original est sous licence MIT. Les polices et marques conservent leurs droits propres : [LICENSE](LICENSE), [NOTICE.md](NOTICE.md), [provenance des ressources](app/assets/SOURCES.md). L’[architecture](docs/ARCHITECTURE.md) décrit les responsabilités des modules. Les contributions, corrections et reprises du projet sont bienvenues ; voir [CONTRIBUTING.md](CONTRIBUTING.md). Les signalements de sécurité suivent [SECURITY.md](SECURITY.md).
 
 Le dépôt contient le code, les outils et tests reproductibles, ainsi que des captures fictives. Les identifiants, bibliothèques réelles, adresses réseau, paramètres de comptes et journaux privés ne font pas partie des sources.

@@ -16,6 +16,7 @@ ROOT = Path(__file__).resolve().parents[1]
 APP_FILES = {'/manifest.json', '/main.qml', '/qmldir', '/Shell.qml', '/TvButton.qml', '/PlexService.qml', '/Request.qml', '/Plex.js', '/fonts/NotoSans-Regular.ttf', '/fonts/NotoSans-SemiBold.ttf', '/fonts/OFL.txt'}
 APP_FILES.add('/assets/plex-logo.svg')
 APP_FILES.add('/AppConfig.js')
+APP_FILES.update({'/AppInfo.js', '/Brand.qml'})
 APP_FILES.add('/ProfileScreen.qml')
 APP_FILES.add('/LibraryScreen.qml')
 APP_FILES.add('/assets/app-icon.png')

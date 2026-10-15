@@ -27,7 +27,7 @@ def public_files(identifier, app_dir=None):
             raise ValueError('Ressource hors du dossier public : '+name)
         files[name] = source.read_bytes()
     manifest = json.loads(files['manifest.json'])
-    manifest.update(identifier=identifier, name='Plex pour Devialet',
+    manifest.update(identifier=identifier,
                     description='Client indépendant pour vos films et séries Plex.',
                     icon='assets/app-icon.png')
     entries = manifest.get('entryPoints', {})
@@ -95,10 +95,10 @@ def verify_package(path):
 if __name__=='__main__':
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--identifier',required=True,help='Must belong to the actual FreeFactory account prefix')
-    parser.add_argument('--version',default='0.5.0-dev')
+    parser.add_argument('--version',default='0.5.1-dev')
     args=parser.parse_args()
     if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9.-]*',args.version):parser.error('Version invalide')
-    report=write_package(ROOT/'dist'/('Plex-pour-Devialet-'+args.version+'.fbxqml'),args.identifier)
+    report=write_package(ROOT/'dist'/('Le-Pavillon-de-Jade-pour-Plex-'+args.version+'.fbxqml'),args.identifier)
     print('Paquet construit et relu :',report['file'])
     print('Ressources publiques :',report['files'],'| taille :',report['bytes'],'octets')
     print('SHA-256 :',report['sha256'])

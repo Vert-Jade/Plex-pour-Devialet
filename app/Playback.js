@@ -1,4 +1,5 @@
 .pragma library
+.import "AppInfo.js" as AppInfo
 
 // Conservative HTTP Matroska profile for the embedded Qt player. PMS decodes
 // the source; the Player receives H.264 and a single AAC or AC3 audio track.
@@ -58,7 +59,7 @@ function versions(item) {
     });
 }
 function metadataPath(item) {
-    if (/^\/library\/metadata\/[^\r\n?#]+$/.test(item.key || "")) return item.key;
+    if (/^\/library\/metadata\/\d+$/.test(item.key || "")) return item.key;
     return /^\d+$/.test(String(item.ratingKey || "")) ? "/library/metadata/"+item.ratingKey : "";
 }
 function directPart(item, options) {
@@ -103,7 +104,7 @@ function parameters(item, options, session, client, connection) {
         offset:Math.floor(Math.max(0,options.offset || 0)/1000),copyts:0,fastSeek:1,
         session:session,"X-Plex-Session-Identifier":session,"X-Plex-Client-Identifier":client,
         "X-Plex-Client-Profile-Name":"Generic","X-Plex-Client-Profile-Extra":profile,"X-Plex-Platform":"Generic",
-        "X-Plex-Product":"Plex pour Devialet","X-Plex-Version":"0.4.0"};
+        "X-Plex-Product":AppInfo.name,"X-Plex-Version":AppInfo.version};
 }
 function decision(body) {
     var c=body.MediaContainer || {}, rows=c.Metadata || [];

@@ -1,5 +1,6 @@
 import QtQuick 2.4
 import "Plex.js" as Plex
+import "AppInfo.js" as AppInfo
 
 FocusScope {
     id: shell
@@ -58,8 +59,11 @@ FocusScope {
     readonly property bool navOpen: isLibrary && zone === 0 && !detailOpen && !sheet && !api.error
     readonly property var filterOptions: [{title:"Tous"},{title:"Non vus"},{title:"En cours"},{title:"Vus"}]
     readonly property var sortOptions: [{title:"Titre : A à Z"},{title:"Date d’ajout"},{title:"Année"},{title:"Titre : Z à A"},{title:"Date de sortie"},{title:"Note"},{title:"Durée"}]
-    readonly property var dropdownOptions: dropdown === "view" ? [{title:"Bibliothèque"},{title:"Collections"}] : dropdown === "status" ? filterOptions : dropdown === "sort" ? sortOptions : genrePending ? [] : api.genres
-    readonly property int dropdownSelected: dropdown === "view" ? (api.view===2 ? 1 : 0) : dropdown === "status" ? api.filterIndex : dropdown === "sort" ? api.sortIndex : selectedGenre()
+    readonly property var viewOptions: [{title:"Bibliothèque",value:1},{title:"Collections",value:2},{title:"Listes de lecture",value:3},{title:"Dossiers",value:5}]
+    readonly property int viewOption: Math.max(0,viewOptions.map(function(v){return v.value;}).indexOf(api.view))
+    readonly property string countLabel: api.total + (api.view===5 ? " élément" : " titre") + (api.total>1 ? "s" : "")
+    readonly property var dropdownOptions: dropdown === "view" ? viewOptions : dropdown === "status" ? filterOptions : dropdown === "sort" ? sortOptions : genrePending ? [] : api.genres
+    readonly property int dropdownSelected: dropdown === "view" ? viewOption : dropdown === "status" ? api.filterIndex : dropdown === "sort" ? api.sortIndex : selectedGenre()
     signal startPlayback(string url, var media, int offset)
     signal themeRequested(string url)
     onThemeSourceChanged: { themeRequested(""); themeDelay.restart(); }
@@ -87,7 +91,7 @@ FocusScope {
         var kind = dropdown; var selected = dropdownSelected;
         closeDropdown();
         if (index === selected) return;
-        if(kind==="view"){zone=4;api.selectView(index===1 ? 2 : 1);}
+        if(kind==="view"){zone=4;focusHistory=[];api.selectView(viewOptions[index].value);}
         else if (kind === "status") api.changeFilter(index);
         else if (kind === "sort") api.changeSort(index);
         else api.chooseGenre(index);
@@ -115,7 +119,7 @@ FocusScope {
         takeFocus();
     }
     function selectTab(index) {
-        tabIndex = index; zone = 4;dropdown="view";dropdownIndex=api.view===2 ? 1 : 0;
+        tabIndex = index; zone = 4;dropdown="view";dropdownIndex=viewOption;
     }
     function selectNav() {
         if (navIndex === navigation.length - 1) openSettings();
@@ -134,7 +138,7 @@ FocusScope {
     function rememberFocus() { var stack = focusHistory.slice(); stack.push({item:itemIndex,hub:hubIndex}); focusHistory = stack; }
     function openCurrent() {
         if (!current || !current.type) return;
-        if (["collection","playlist","category"].indexOf(current.type) >= 0) rememberFocus();
+        if (["collection","playlist","category","folder"].indexOf(current.type) >= 0) rememberFocus();
         api.openMedia(current);
     }
     function homeAction(index) {
@@ -334,26 +338,27 @@ FocusScope {
         Behavior on x { NumberAnimation { duration: 130 } }
         Row { x: 88; y: 22; spacing: 8; visible: !api.home && !api.watchlist && !api.globalSearch && !api.browsePath
             Repeater { model: shell.tabs
-                Item { width: tabText.implicitWidth + 30; height: 48
+                Item { width: tabText.implicitWidth + 64; height: 48
                     Rectangle { anchors.fill: parent; radius: 4; color: shell.zone === 4 && shell.tabIndex === index ? "white" : "transparent" }
-                    Text { id: tabText; anchors.centerIn: parent; text: (api.view===2 ? "Collections" : "Bibliothèque")+"  ▾"; font.family: typeface.name; font.pixelSize: 19; color: shell.zone === 4 && shell.tabIndex === index ? "#202020" : "white" }
+                    Text { textFormat: Text.PlainText; id: tabText; x:15; anchors.verticalCenter:parent.verticalCenter; text: shell.viewOptions[shell.viewOption].title; font.family: typeface.name; font.pixelSize: 19; color: shell.zone === 4 && shell.tabIndex === index ? "#202020" : "white" }
+                    TvIcon { anchors.right:parent.right; anchors.rightMargin:16; anchors.verticalCenter:parent.verticalCenter; width:16;height:16;kind:"down";ink:tabText.color }
                     Rectangle { x: 7; y: 52; height: 2; width: parent.width-14; color: "#59d6a6"; visible: api.view === 1 }
                     MouseArea { anchors.fill: parent; onClicked: { shell.selectTab(index); shell.takeFocus(); } }
                 }
             }
         }
         TvButton { x: 88; y: 22; width: 790; height: 48; visible: !!api.browsePath; text: "‹   " + api.browseTitle; highlighted: shell.zone === 4 || shell.zone === 1; onClicked: { shell.goParent(); shell.takeFocus(); } }
-        Text { x: 96; y: 32; text: api.globalSearch ? "Recherche dans toutes les bibliothèques" : api.watchlist ? "Liste de suivis" : "Accueil"; visible: (api.home || api.watchlist || api.globalSearch) && !api.browsePath; font.family: typeface.name; font.pixelSize: 23; color: "white" }
-        Text { x: 1100; y: 32; width: 112; text: shell.timeText; horizontalAlignment: Text.AlignRight; color: "#aaa"; font.family: typeface.name; font.pixelSize: 20 }
+        Text { textFormat: Text.PlainText; x: 96; y: 32; text: api.globalSearch ? "Recherche dans toutes les bibliothèques" : api.watchlist ? "Liste de suivis" : "Accueil"; visible: (api.home || api.watchlist || api.globalSearch) && !api.browsePath; font.family: typeface.name; font.pixelSize: 23; color: "white" }
+        Text { textFormat: Text.PlainText; x: 1100; y: 32; width: 112; text: shell.timeText; horizontalAlignment: Text.AlignRight; color: "#aaa"; font.family: typeface.name; font.pixelSize: 20 }
         Row { x: 96; y: 94; spacing: 12; visible: api.view === 1 && !api.watchlist && !api.globalSearch && !api.browsePath
             FilterButton { width: 154; text: shell.filterOptions[api.filterIndex].title; highlighted: shell.zone === 1 && shell.filterButton === 0 && !shell.dropdown; expanded: shell.dropdown === "status"; filtered: api.filterIndex > 0; onClicked: { shell.openFilter(0); shell.takeFocus(); } }
             FilterButton { width: 236; text: api.genreTitle; highlighted: shell.zone === 1 && shell.filterButton === 1 && !shell.dropdown; expanded: shell.dropdown === "genre"; filtered: api.genreTitle !== "Tous les genres"; onClicked: { shell.openFilter(1); shell.takeFocus(); } }
-            Text { width: 30; height: 46; text: "par"; color: "#aaa"; font.family: typeface.name; font.pixelSize: 18; verticalAlignment: Text.AlignVCenter }
+            Text { textFormat: Text.PlainText; width: 30; height: 46; text: "par"; color: "#aaa"; font.family: typeface.name; font.pixelSize: 18; verticalAlignment: Text.AlignVCenter }
             FilterButton { width: 204; text: shell.sortOptions[api.sortIndex].title; highlighted: shell.zone === 1 && shell.filterButton === 2 && !shell.dropdown; expanded: shell.dropdown === "sort"; onClicked: { shell.openFilter(2); shell.takeFocus(); } }
-            Text { width: 260; height: 46; text: api.busy ? "Chargement…" : api.total + ((api.section || {}).type === "show" ? " séries" : " films"); color: "#aaa"; font.family: typeface.name; font.pixelSize: 19; verticalAlignment: Text.AlignVCenter }
+            Text { textFormat: Text.PlainText; width: 260; height: 46; text: api.busy ? "Chargement…" : api.total + ((api.section || {}).type === "show" ? " séries" : " films"); color: "#aaa"; font.family: typeface.name; font.pixelSize: 19; verticalAlignment: Text.AlignVCenter }
         }
-        Text { x: 96; y: 104; visible: !shell.recommended && (api.watchlist || api.globalSearch || api.view !== 1 || !!api.browsePath); text: (api.busy || (api.globalSearch && api.homeLoading)) ? "Recherche en cours… · "+api.total+" titres" : api.total + " titres"; font.family: typeface.name; font.pixelSize: 20; color: "#aaa" }
-        Text { x: 96; y: 148; visible: !!api.searchText; text: "Résultats pour « " + api.searchText + " »"; font.family: typeface.name; font.pixelSize: 16; color: "#59d6a6" }
+        Text { textFormat: Text.PlainText; x: 96; y: 104; visible: !shell.recommended && (api.watchlist || api.globalSearch || api.view !== 1 || !!api.browsePath); text: ((api.busy || (api.globalSearch && api.homeLoading)) ? "Chargement… · " : "") + shell.countLabel; font.family: typeface.name; font.pixelSize: 20; color: "#aaa" }
+        Text { textFormat: Text.PlainText; x: 96; y: 148; visible: !!api.searchText; text: "Résultats pour « " + api.searchText + " »"; font.family: typeface.name; font.pixelSize: 16; color: "#59d6a6" }
         GridView {
             id: grid; objectName: "posterGrid"; x: 84; y: 176; width: 1104; height: 484; visible: !shell.recommended
             cellWidth: 184; cellHeight: 330; model: api.items; currentIndex: shell.itemIndex; interactive: false; clip: true
@@ -366,12 +371,12 @@ FocusScope {
             Rectangle { width: 3; height: Math.max(24,parent.height * grid.height / Math.max(1,grid.contentHeight)); y: Math.max(0,Math.min(parent.height-height,grid.contentY/Math.max(1,grid.contentHeight-grid.height)*(parent.height-height))); color: "#888" }
         }
         Column { x: 96; y: 248; width: 1050; spacing: 20; visible: !shell.displayedItems.length && !api.busy && !shell.recommended
-            Text { text: api.watchlist ? "Votre liste de suivis est vide" : api.view === 2 ? "Aucune collection" : api.view === 3 ? "Aucune liste de lecture" : "Aucun titre"; font.family: typeface.name; font.pixelSize: 32; color: "white" }
-            Text { width: 900; text: api.watchlist ? "Ajoutez des films et séries à votre Watchlist dans Plex." : api.view === 2 || api.view === 3 ? "Les éléments créés dans Plex apparaîtront ici." : "Essayez une autre bibliothèque ou modifiez les filtres."; font.family: typeface.name; font.pixelSize: 21; color: "#bbb"; wrapMode: Text.Wrap }
+            Text { textFormat: Text.PlainText; text: api.watchlist ? "Votre liste de suivis est vide" : api.view === 2 ? "Aucune collection" : api.view === 3 ? "Aucune liste de lecture" : "Aucun titre"; font.family: typeface.name; font.pixelSize: 32; color: "white" }
+            Text { textFormat: Text.PlainText; width: 900; text: api.watchlist ? "Ajoutez des films et séries à votre Watchlist dans Plex." : api.view === 2 || api.view === 3 ? "Les éléments créés dans Plex apparaîtront ici." : "Essayez une autre bibliothèque ou modifiez les filtres."; font.family: typeface.name; font.pixelSize: 21; color: "#bbb"; wrapMode: Text.Wrap }
         }
         Rectangle { x: 64; y: 667; width: 1216; height: 53; color: "#ed080808" }
-        Text { x: 96; y: 682; text: api.globalSearch && api.searchNotice ? api.searchNotice : api.homeNotice && api.home ? api.homeNotice : api.browseTitle; font.family: typeface.name; font.pixelSize: 16; color: "#aaa"; width: 650; elide: Text.ElideRight }
-        Text { x: 750; y: 682; width: 300; horizontalAlignment: Text.AlignRight; text: shell.displayedItems.length ? (shell.recommended ? (shell.hubIndex+1) + " / " + api.hubs.length : (api.page * api.pageSize + shell.itemIndex+1) + " / " + api.total) : ""; font.family: typeface.name; font.pixelSize: 16; color: "#aaa" }
+        Text { textFormat: Text.PlainText; x: 96; y: 682; text: api.globalSearch && api.searchNotice ? api.searchNotice : api.homeNotice && api.home ? api.homeNotice : api.browseTitle; font.family: typeface.name; font.pixelSize: 16; color: "#aaa"; width: 650; elide: Text.ElideRight }
+        Text { textFormat: Text.PlainText; x: 750; y: 682; width: 300; horizontalAlignment: Text.AlignRight; text: shell.displayedItems.length ? (shell.recommended ? (shell.hubIndex+1) + " / " + api.hubs.length : (api.page * api.pageSize + shell.itemIndex+1) + " / " + api.total) : ""; font.family: typeface.name; font.pixelSize: 16; color: "#aaa" }
         TvButton { x: 1090; y: 674; width: 54; height: 38; text: "‹"; visible: !shell.recommended; highlighted: shell.zone === 3 && shell.pageButton === 0; available: api.page > 0; onClicked: { shell.changePage(-1); shell.takeFocus(); } }
         TvButton { x: 1158; y: 674; width: 54; height: 38; text: "›"; visible: !shell.recommended; highlighted: shell.zone === 3 && shell.pageButton === 1; available: (api.page+1)*api.pageSize < api.total; onClicked: { shell.changePage(1); shell.takeFocus(); } }
     }
@@ -379,8 +384,7 @@ FocusScope {
         width: shell.navOpen ? 280 : shell.recommended ? 166 : 64; height: 720; visible: isLibrary && !shell.detailOpen
         color: shell.recommended ? "#ee080808" : "#101010"; clip: true
         Behavior on width { NumberAnimation { duration: 130 } }
-        Image { x: (parent.width-86)/2; y: 28; width: 86; height: 40; source: "assets/plex-logo.svg"; fillMode: Image.PreserveAspectFit; visible: shell.recommended || shell.navOpen }
-        Text { x: 8; y: 74; width: parent.width-16; text: "pour DEVIALET"; font.family: typeface.name; font.pixelSize: 11; font.letterSpacing: 1.5; horizontalAlignment: Text.AlignHCenter; color: "#c9c9c9"; visible: shell.recommended || shell.navOpen }
+        Brand { x: (parent.width-width)/2; y: 15; compact:true; visible:shell.recommended || shell.navOpen }
         ListView { id: nav; x: 0; y: shell.recommended || shell.navOpen ? 115 : 20; width: parent.width; height: parent.height-y-18; interactive: false; clip: true; model: shell.navigation; currentIndex: shell.navIndex; highlightRangeMode: ListView.ApplyRange; preferredHighlightBegin: 0; preferredHighlightEnd: 450; highlightMoveDuration: 130
             delegate: Item { width: nav.width; height: 64
                 property bool focused: shell.navOpen && shell.navIndex === index
@@ -390,7 +394,7 @@ FocusScope {
                     Rectangle { width: 3; height: parent.height; radius: 2; color: "#65ffe3"; visible: parent.parent.active || parent.parent.focused }
                 }
                 TvIcon { x: shell.recommended ? 31 : 20; y: 15; width: 22; height: 22; kind: modelData.icon; ink: parent.focused || parent.active ? "#fcfcfc" : "#b6b6b6" }
-                Text { visible: shell.recommended || shell.navOpen; x: shell.recommended ? 71 : 57; width: parent.width-x-8; y: 17; text: modelData.title; font.family: typeface.name; font.pixelSize: shell.recommended ? 14 : 18; elide: Text.ElideRight; color: parent.focused || parent.active ? "#fcfcfc" : "#bbbbbb" }
+                Text { textFormat: Text.PlainText; visible: shell.recommended || shell.navOpen; x: shell.recommended ? 71 : 57; width: parent.width-x-8; y: 17; text: modelData.title; font.family: typeface.name; font.pixelSize: shell.recommended ? 14 : 18; elide: Text.ElideRight; color: parent.focused || parent.active ? "#fcfcfc" : "#bbbbbb" }
                 MouseArea { anchors.fill: parent; onClicked: { shell.openNav(); shell.navIndex = index; shell.selectNav(); shell.takeFocus(); } }
             }
         }
@@ -401,8 +405,8 @@ FocusScope {
     LibraryScreen {id:libraryPanel;anchors.fill:parent;api:shell.api;visible:api.state==="libraries"}
     Item {
         anchors.fill: parent; visible: api.state === "servers"
-        Text { x: 90; y: 75; text: "Choisissez votre serveur"; color: "#f5f5f5"; font.family: typeface.name; font.pixelSize: 38; font.weight: Font.DemiBold }
-        Text { x: 90; y: 135; text: "Votre choix sera retrouvé automatiquement au prochain lancement."; color: "#afafaf"; font.family: typeface.name; font.pixelSize: 22 }
+        Text { textFormat: Text.PlainText; x: 90; y: 75; text: "Choisissez votre serveur"; color: "#f5f5f5"; font.family: typeface.name; font.pixelSize: 38; font.weight: Font.DemiBold }
+        Text { textFormat: Text.PlainText; x: 90; y: 135; text: "Votre choix sera retrouvé automatiquement au prochain lancement."; color: "#afafaf"; font.family: typeface.name; font.pixelSize: 22 }
         ListView { x: 90; y: 214; width: 1100; height: 390; spacing: 14; clip: true; model: api.servers; currentIndex: shell.serverIndex; highlightRangeMode: ListView.ApplyRange
             delegate: TvButton { width: 1100; height: 74; text: modelData.name; textSize: 25; highlighted: index === shell.serverIndex; onClicked: { api.chooseServer(index); shell.takeFocus(); } }
         }
@@ -412,11 +416,11 @@ FocusScope {
         anchors.fill: parent; visible: shell.detailOpen; color: "#080808"
         Image { x: 280; width: 1000; height: 720; source: shell.detailOpen ? api.imageUrl(api.detail.art || api.detail.thumb || "",1600,900) : ""; asynchronous: true; fillMode: Image.PreserveAspectCrop }
         Image { anchors.fill: parent; source: "assets/cinema-shade.svg" }
-        Text { x: 94; y: 48; text: "‹   " + api.browseTitle; font.family: typeface.name; font.pixelSize: 19; color: "#c4c4c4" }
-        Text { x: 94; y: 169; text: api.detail.type === "show" ? "SÉRIE" : api.detail.type === "season" ? "SAISON" : api.detail.type==="episode" ? "ÉPISODE" : "FILM"; font.family: typeface.name; font.pixelSize: 13; font.letterSpacing: 2.8; color: "#59d6a6" }
-        Text { x: 90; y: 205; width: 1060; height: 120; text: Plex.label(api.detail); font.family: typeface.name; font.pixelSize: 48; font.weight: Font.DemiBold; color: "#fafafa"; maximumLineCount: 2; wrapMode: Text.Wrap; elide: Text.ElideRight }
-        Text { x: 94; y: 346; text: String(api.detail.year || "") + (api.detail.duration ? "    ·    " + Plex.duration(api.detail.duration) : "") + (api.detail.contentRating ? "    ·    " + Plex.age(api.detail.contentRating) : ""); font.family: typeface.name; font.pixelSize: 21; color: "#d9d9d9" }
-        Text { x: 94; y: 391; width: 860; height: 108; text: api.detail.cloudOnly ? "Ce titre fait partie de votre liste de suivis Plex. Il n’est pas disponible dans les bibliothèques de ce serveur." : api.detail.summary || "Aucun résumé disponible."; font.family: typeface.name; font.pixelSize: 22; color: "#c5c5c5"; maximumLineCount: 3; wrapMode: Text.Wrap; elide: Text.ElideRight; lineHeight: 1.2 }
+        Text { textFormat: Text.PlainText; x: 94; y: 48; text: "‹   " + api.browseTitle; font.family: typeface.name; font.pixelSize: 19; color: "#c4c4c4" }
+        Text { textFormat: Text.PlainText; x: 94; y: 169; text: api.detail.type === "show" ? "SÉRIE" : api.detail.type === "season" ? "SAISON" : api.detail.type==="episode" ? "ÉPISODE" : "FILM"; font.family: typeface.name; font.pixelSize: 13; font.letterSpacing: 2.8; color: "#59d6a6" }
+        Text { textFormat: Text.PlainText; x: 90; y: 205; width: 1060; height: 120; text: Plex.label(api.detail); font.family: typeface.name; font.pixelSize: 48; font.weight: Font.DemiBold; color: "#fafafa"; maximumLineCount: 2; wrapMode: Text.Wrap; elide: Text.ElideRight }
+        Text { textFormat: Text.PlainText; x: 94; y: 346; text: String(api.detail.year || "") + (api.detail.duration ? "    ·    " + Plex.duration(api.detail.duration) : "") + (api.detail.contentRating ? "    ·    " + Plex.age(api.detail.contentRating) : ""); font.family: typeface.name; font.pixelSize: 21; color: "#d9d9d9" }
+        Text { textFormat: Text.PlainText; x: 94; y: 391; width: 860; height: 108; text: api.detail.cloudOnly ? "Ce titre fait partie de votre liste de suivis Plex. Il n’est pas disponible dans les bibliothèques de ce serveur." : api.detail.summary || "Aucun résumé disponible."; font.family: typeface.name; font.pixelSize: 22; color: "#c5c5c5"; maximumLineCount: 3; wrapMode: Text.Wrap; elide: Text.ElideRight; lineHeight: 1.2 }
         Row { x: 94; y: 546; spacing: 16
             TvButton { width: 270; height: 58; available: !api.detail.cloudOnly; text: api.detail.cloudOnly ? "Absent de ce serveur" : api.detail.type === "show" ? "Voir les saisons" : api.detail.type === "season" ? "Voir les épisodes" : api.detail.viewOffset ? "Reprendre à " + Plex.clock(api.detail.viewOffset) : "Lire"; icon: "play"; highlighted: shell.detailZone === 0 && shell.detailButton === 0 && !shell.sheet; onClicked: { shell.detailZone = 0; shell.detailButton = 0; shell.detailAction(); shell.takeFocus(); } }
             TvButton { width: 220; height: 58; text: "Depuis le début"; visible: !!api.detail.viewOffset && api.detail.type !== "show" && api.detail.type !== "season"; highlighted: shell.detailZone === 0 && shell.detailButton === 1 && !shell.sheet; onClicked: { shell.detailZone = 0; shell.detailButton = 1; shell.detailAction(); shell.takeFocus(); } }
@@ -425,7 +429,7 @@ FocusScope {
             TvButton { width: 140; height: 58; text: "Retour"; highlighted: shell.detailZone === 0 && shell.detailButton === 4 && !shell.sheet; onClicked: { shell.detailOpen = false; shell.takeFocus(); } }
         }
         Row {x:94;y:624;spacing:12;Repeater {model:shell.detailActions;delegate:TvButton {width:196;height:46;text:modelData.title;textSize:17;highlighted:shell.detailZone===1 && shell.detailSecondary===index && !shell.sheet;onClicked:{shell.detailZone=1;shell.detailSecondary=index;shell.detailAction();shell.takeFocus();}}}}
-        Text { x: 806; y: 682; width: 380; text: "Retour  Revenir aux affiches"; font.family: typeface.name; font.pixelSize: 15; color: "#9d9d9d"; horizontalAlignment: Text.AlignRight }
+        Text { textFormat: Text.PlainText; x: 806; y: 682; width: 380; text: "Retour  Revenir aux affiches"; font.family: typeface.name; font.pixelSize: 15; color: "#9d9d9d"; horizontalAlignment: Text.AlignRight }
     }
 
     Rectangle { anchors.fill: parent; color: "#6b000000"; visible: !!shell.dropdown; MouseArea { anchors.fill: parent; onClicked: { shell.closeDropdown(); shell.takeFocus(); } } }
@@ -440,21 +444,21 @@ FocusScope {
         anchors.fill: parent; color: "#da000000"; visible: !!shell.sheet && shell.sheet !== "search" && shell.sheet !== "settings"
         Rectangle {
             x: shell.sheet === "synopsis" ? 180 : 320; y: 86; width: shell.sheet === "synopsis" ? 920 : 640; height: 548; radius: 14; color: "#303030"; border.color: "#505050"
-            Text { x: 36; y: 28; width: parent.width - 72; text: shell.sheet === "synopsis" ? Plex.label(api.detail) : shell.sheet === "info" ? "Informations du média" : shell.sheet === "trailers" ? "Bandes-annonces" : shell.sheet==="extras" ? "Bonus" : shell.sheet==="actors" ? "Distribution · Titres dans cette bibliothèque" : shell.sheet==="about" ? "À propos" : "Compte"; font.family: typeface.name; font.pixelSize: 28; color: "#f3f3f3"; elide: Text.ElideRight }
+            Text { textFormat: Text.PlainText; x: 36; y: 28; width: parent.width - 72; text: shell.sheet === "synopsis" ? Plex.label(api.detail) : shell.sheet === "info" ? "Informations du média" : shell.sheet === "trailers" ? "Bandes-annonces" : shell.sheet==="extras" ? "Bonus" : shell.sheet==="actors" ? "Distribution · Titres dans cette bibliothèque" : shell.sheet==="about" ? "À propos" : "Compte"; font.family: typeface.name; font.pixelSize: 28; color: "#f3f3f3"; elide: Text.ElideRight }
             ListView { x: 32; y: 106; width: 576; height: 350; spacing: 12; visible: ["trailers","actors","extras"].indexOf(shell.sheet)>=0; clip: true; interactive: false; model: shell.sheetOptions; currentIndex: shell.sheetIndex; highlightRangeMode: ListView.ApplyRange
                 delegate: TvButton { width: 576; height: 58; text: modelData.title; highlighted: shell.sheetIndex === index; onClicked: { shell.sheetIndex = index; shell.sheetAction(); shell.takeFocus(); } }
             }
-            Text { x: 36; y: 78; width: parent.width - 72; visible: shell.sheet === "account"; text: (api.profileName ? api.profileName+" · " : "")+api.serverName + " · " + api.connectionLabel; font.family: typeface.name; font.pixelSize: 18; color: "#bababa";elide:Text.ElideRight }
+            Text { textFormat: Text.PlainText; x: 36; y: 78; width: parent.width - 72; visible: shell.sheet === "account"; text: (api.profileName ? api.profileName+" · " : "")+api.serverName + " · " + api.connectionLabel; font.family: typeface.name; font.pixelSize: 18; color: "#bababa";elide:Text.ElideRight }
             ListView { x: 32; y: 124; width: 576; height: 350; spacing: 10; visible: shell.sheet === "account";clip:true;interactive:false;currentIndex:shell.sheetIndex;highlightRangeMode:ListView.ApplyRange
                 model: shell.accountActions
                 delegate: TvButton { width: 576; height: 58; text: modelData.title; highlighted: shell.sheetIndex === index; onClicked: { shell.sheetIndex = index; shell.sheetAction(); shell.takeFocus(); } }
             }
             Flickable { id: synopsis; objectName: "synopsis"; x: 36; y: 92; width: parent.width - 72; height: 354; clip: true; visible: shell.sheet === "synopsis"; interactive: false; contentHeight: synopsisText.height
-                Text { id: synopsisText; width: synopsis.width; text: api.detail.cloudOnly ? "Ce titre fait partie de votre liste de suivis Plex. Il n’est pas disponible dans les bibliothèques de ce serveur." : api.detail.summary || "Aucun résumé disponible."; wrapMode: Text.Wrap; font.family: typeface.name; font.pixelSize: 24; lineHeight: 1.4; color: "#dadada" }
+                Text { textFormat: Text.PlainText; id: synopsisText; width: synopsis.width; text: api.detail.cloudOnly ? "Ce titre fait partie de votre liste de suivis Plex. Il n’est pas disponible dans les bibliothèques de ce serveur." : api.detail.summary || "Aucun résumé disponible."; wrapMode: Text.Wrap; font.family: typeface.name; font.pixelSize: 24; lineHeight: 1.4; color: "#dadada" }
             }
-            Text { x: 36; y: 122; width: parent.width - 72; visible: shell.sheet === "info"; text: Plex.technicalInfo(api.detail); wrapMode: Text.Wrap; font.family: typeface.name; font.pixelSize: 22; lineHeight: 1.6; color: "#ddd" }
-            Text {x:36;y:112;width:parent.width-72;visible:shell.sheet==="about";text:"Plex pour Devialet · Version 0.5.0 en développement\n\nClient indépendant, non officiel. Un compte Plex et un serveur accessible sont nécessaires.\n\nLa connexion et les réglages sont mémorisés sur ce Player. La déconnexion efface les jetons de ce Player.\n\nAucun service publicitaire ni mesure d’audience ajouté par ce client. Les échanges passent par Plex et votre serveur.";wrapMode:Text.Wrap;font.family:typeface.name;font.pixelSize:19;color:"#dddddd";lineHeight:1.2}
-            Text { x: 36; y: 494; text: shell.sheet === "info" ? "Retour  Fermer" : shell.sheet === "synopsis" ? "Flèches  Lire la suite     ·     Retour  Fermer" : "Flèches  Choisir     ·     OK  Valider     ·     Retour  Fermer"; font.family: typeface.name; font.pixelSize: 16; color: "#aeaeae" }
+            Text { textFormat: Text.PlainText; x: 36; y: 122; width: parent.width - 72; visible: shell.sheet === "info"; text: Plex.technicalInfo(api.detail); wrapMode: Text.Wrap; font.family: typeface.name; font.pixelSize: 22; lineHeight: 1.6; color: "#ddd" }
+            Text { textFormat: Text.PlainText;x:36;y:112;width:parent.width-72;visible:shell.sheet==="about";text:AppInfo.name+" · "+AppInfo.version+"\n\nClient indépendant en développement, sans affiliation à Plex, Free ou Devialet. Aucun contenu fourni.\n\nUn compte Plex et un serveur accessible sont nécessaires. La connexion est enregistrée uniquement si « Rester connecté » est activé. La déconnexion efface les jetons de ce Player.\n\nAucune publicité ni mesure d’audience ajoutée par ce client. Les échanges passent par Plex et votre serveur.";wrapMode:Text.Wrap;font.family:typeface.name;font.pixelSize:19;color:"#dddddd";lineHeight:1.2}
+            Text { textFormat: Text.PlainText; x: 36; y: 494; text: shell.sheet === "info" ? "Retour  Fermer" : shell.sheet === "synopsis" ? "Flèches  Lire la suite     ·     Retour  Fermer" : "Flèches  Choisir     ·     OK  Valider     ·     Retour  Fermer"; font.family: typeface.name; font.pixelSize: 16; color: "#aeaeae" }
         }
     }
     SettingsPanel {
@@ -463,34 +467,34 @@ FocusScope {
         onChosen: { shell.sheetIndex = index; shell.sheetAction(); shell.takeFocus(); }
     }
     Rectangle { x: 850; y: 42; width: 340; height: 54; radius: 8; color: "#f0181818"; border.color: "#65ffe3"; visible: !!api.notice
-        Text { anchors.centerIn: parent; text: api.notice; font.family: typeface.name; font.pixelSize: 17; color: "#fcfcfc" }
+        Text { textFormat: Text.PlainText; anchors.centerIn: parent; text: api.notice; font.family: typeface.name; font.pixelSize: 17; color: "#fcfcfc" }
     }
     Rectangle {
         anchors.fill: parent; color: "#f2080808"; visible: shell.sheet === "search"
-        Text { x: 120; y: 65; text: "Rechercher dans toutes les bibliothèques"; font.family: typeface.name; font.pixelSize: 32; color: "white" }
+        Text { textFormat: Text.PlainText; x: 120; y: 65; text: "Rechercher dans toutes les bibliothèques"; font.family: typeface.name; font.pixelSize: 32; color: "white" }
         Rectangle { x: 120; y: 139; width: 1040; height: 70; color: "#454545"; radius: 4
-            Text { x: 22; anchors.verticalCenter: parent.verticalCenter; width: 995; text: shell.searchDraft || "Titre du film ou de la série"; font.family: typeface.name; font.pixelSize: 26; color: shell.searchDraft ? "white" : "#aaa"; elide: Text.ElideLeft }
+            Text { textFormat: Text.PlainText; x: 22; anchors.verticalCenter: parent.verticalCenter; width: 995; text: shell.searchDraft || "Titre du film ou de la série"; font.family: typeface.name; font.pixelSize: 26; color: shell.searchDraft ? "white" : "#aaa"; elide: Text.ElideLeft }
         }
         Grid { x: 120; y: 246; columns: 10; spacing: 10
             Repeater { model: shell.keyboardKeys
                 Rectangle { width: 95; height: 64; radius: 4; color: shell.keyboardIndex === index ? "white" : "#454545"
-                    Text { anchors.centerIn: parent; text: modelData; font.family: typeface.name; font.pixelSize: index < 36 ? 24 : 13; color: shell.keyboardIndex === index ? "#222" : "#eee" }
+                    Text { textFormat: Text.PlainText; anchors.centerIn: parent; text: modelData; font.family: typeface.name; font.pixelSize: index < 36 ? 24 : 13; color: shell.keyboardIndex === index ? "#222" : "#eee" }
                     MouseArea { anchors.fill: parent; onClicked: { shell.keyboardIndex = index; shell.searchKey(); shell.takeFocus(); } }
                 }
             }
         }
-        Text { x: 120; y: 602; text: "Flèches  Choisir une lettre     OK  Valider     Retour  Fermer"; font.family: typeface.name; font.pixelSize: 18; color: "#aaa" }
+        Text { textFormat: Text.PlainText; x: 120; y: 602; text: "Flèches  Choisir une lettre     OK  Valider     Retour  Fermer"; font.family: typeface.name; font.pixelSize: 18; color: "#aaa" }
     }
     Rectangle {
         anchors.fill: parent; color: "#ed000000"; visible: !!api.error
         Column { anchors.centerIn: parent; width: 840; spacing: 28
-            Text { text: "Action indisponible"; color: "#f5f5f5"; font.family: typeface.name; font.pixelSize: 38; font.weight: Font.DemiBold }
-            Text { width: parent.width; text: api.error; color: "#c6c6c6"; font.family: typeface.name; font.pixelSize: 25; wrapMode: Text.Wrap; lineHeight: 1.3 }
+            Text { textFormat: Text.PlainText; text: "Action indisponible"; color: "#f5f5f5"; font.family: typeface.name; font.pixelSize: 38; font.weight: Font.DemiBold }
+            Text { textFormat: Text.PlainText; width: parent.width; text: api.error; color: "#c6c6c6"; font.family: typeface.name; font.pixelSize: 25; wrapMode: Text.Wrap; lineHeight: 1.3 }
             Row { spacing: 18
                 TvButton { text: "Réessayer"; width: 240; height: 58; highlighted: shell.errorChoice === 0; onClicked: { api.retry(); shell.takeFocus(); } }
                 TvButton { text: "Retour"; width: 170; height: 58; highlighted: shell.errorChoice === 1; onClicked: shell.back() }
             }
         }
     }
-    Text { visible: (api.busy || api.homeLoading) && isLibrary && !shell.dropdown && !api.error && shell.recommended; x: 930; y: 682; width: 298; horizontalAlignment: Text.AlignRight; text: "Chargement…"; font.family: typeface.name; font.pixelSize: 16; color: "#59d6a6" }
+    Text { textFormat: Text.PlainText; visible: (api.busy || api.homeLoading) && isLibrary && !shell.dropdown && !api.error && shell.recommended; x: 930; y: 682; width: 298; horizontalAlignment: Text.AlignRight; text: "Chargement…"; font.family: typeface.name; font.pixelSize: 16; color: "#59d6a6" }
 }

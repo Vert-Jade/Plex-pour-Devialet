@@ -1,5 +1,5 @@
-PLEX POUR DEVIALET — BROUILLON DE FICHE
-Version de travail : 0.5.0-dev. Non déposée, non validée.
+LE PAVILLON DE JADE POUR PLEX — BROUILLON DE FICHE
+Version de travail : 0.5.1-dev. Non déposée, non validée.
 Identifiant : utiliser le préfixe réel du compte FreeFactory.
 Prix envisagé : gratuit. Langue : français. Catégorie : multimédia/vidéo.
 Cible de recette : Player Devialet associé à une Delta S.
@@ -22,6 +22,8 @@ Plex. Application indépendante, non éditée par Plex, Free ou Devialet.
 Confidentialité et limites : PRIVACY.md, SECURITY.md, docs/PLAYBACK.md.
 
 AVANT DEPOT
+Le logo Plex jade et son icône sont conservés ; aucune autorisation écrite de
+Plex n’a été obtenue. Le nom seul ne règle pas ce point (voir NOTICE.md).
 Confirmer le préfixe, les exigences d’images, la catégorie, les coordonnées de
 support et l’usage des marques dans la console FreeFactory. Terminer les cas P0
 de docs/AUDIT.md. Utiliser uniquement les captures fictives de distribution/images.

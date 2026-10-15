@@ -1,6 +1,6 @@
 # Ressources
 
-`plex-logo.svg` : logo récupéré le 14 octobre 2026 depuis le site officiel Plex, à https://www.plex.tv/wp-content/themes/plex/assets/img/plex-logo.svg . Chevron recoloré en jade à la demande de l'utilisateur ; original conservé dans `plex-logo-original.svg`. Marque Plex, utilisée pour identifier la connexion au compte Plex. L'application Plex pour Devialet est un client indépendant.
+`plex-logo.svg` : logo récupéré le 14 octobre 2026 depuis le site officiel Plex, à https://www.plex.tv/wp-content/themes/plex/assets/img/plex-logo.svg . Chevron recoloré en jade à la demande de l'utilisateur ; original conservé dans `plex-logo-original.svg`. Marque Plex, utilisée pour identifier la connexion au compte Plex. L'application Le Pavillon de Jade pour Plex est un client indépendant.
 
 `app-icon.png` : rendu 512 × 512 du même logo vectoriel sur fond noir, produit par `tools/store_assets.py`. Les captures `distribution/images/*-demo.png` utilisent les titres et affiches fictifs du banc de vérification QML ; elles ne contiennent pas la bibliothèque privée. Les dimensions finales exigées pour le dépôt restent à confirmer dans la console FreeFactory.
 

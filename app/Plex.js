@@ -21,8 +21,18 @@ function settingsRows(a) {
         {title:"Mes bibliothèques",hint:"Choisir les bibliothèques épinglées et celles réservées aux adultes.",value:"Choisir",icon:"folder"}
     ];
 }
+function preferenceMap(serialized) {
+    try {
+        var value = JSON.parse(serialized || "{}");
+        return value && typeof value === "object" && !(value instanceof Array) ? value : {};
+    } catch(e) { return {}; }
+}
 function libraryPreferences(serialized,scope) {
-    try {var prefs=JSON.parse(serialized || "{}")[scope];return prefs && prefs.pinned instanceof Array && prefs.adult instanceof Array ? prefs : null;}catch(e){return null;}
+    var values = preferenceMap(serialized);
+    if (!Object.prototype.hasOwnProperty.call(values,scope)) return null;
+    var prefs = values[scope];
+    if (!prefs || !(prefs.pinned instanceof Array) || !(prefs.adult instanceof Array)) return null;
+    return {pinned:prefs.pinned.map(String),adult:prefs.adult.map(String)};
 }
 function adultSearchResult(item,library,adultLibraries) {
     if((adultLibraries || []).indexOf(String(library.key))>=0)return true;
@@ -111,14 +121,19 @@ function libraryPath(section, filter, sort, genre, start, size) {
     return pathWithQuery(section.browseKey || "/library/sections/" + encodeURIComponent(section.key) + "/all", params);
 }
 function safePath(value) {
-    if(typeof value!=="string" || !/^\/(?!\/)/.test(value) || /[\\\r\n\x00#]/.test(value))return false;
+    if(typeof value!=="string" || !/^\/(?!\/)/.test(value) || /[\\\x00-\x20\x7f#]/.test(value))return false;
     var path=value.split("?")[0];
     try{path=decodeURIComponent(path);}catch(e){return false;}
-    return !/[\\\r\n\x00]/.test(path) && !/^\/\//.test(path) && !/(^|\/)\.\.?($|\/)/.test(path);
+    return !/[\\\x00-\x1f\x7f]/.test(path) && !/^\/\//.test(path) && !/(^|\/)\.\.?($|\/)/.test(path);
 }
 function mediaUrl(base, path, token) {
     if (!safePath(path)) return "";
     return base.replace(/\/$/, "") + pathWithQuery(path, {"X-Plex-Token": token});
+}
+function folderPath(path, sectionKey) {
+    if (!safePath(path)) return false;
+    var base = path.split("?")[0];
+    return base === "/library/sections/"+encodeURIComponent(sectionKey)+"/folder" || /^\/library\/metadata\/\d+(\/children)?$/.test(base);
 }
 function duration(ms) {
     var minutes = Math.floor((Number(ms) || 0) / 60000);

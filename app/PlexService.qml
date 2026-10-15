@@ -1,6 +1,7 @@
 import QtQuick 2.4
 import fbx.application 1.0
 import "Plex.js" as Plex
+import "AppInfo.js" as AppInfo
 
 Item {
     id: api
@@ -117,6 +118,7 @@ Item {
         property bool allowAdultSearch: false
         property string libraryPreferences: "{}"
         onReady: {
+            api.validatePreferences();
             if (!clientId) clientId = "devialet-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2);
             api.ownerToken=authToken;api.accountToken = profileToken || authToken;
             if (authToken) { if(rememberProfile) api.restore();else api.loadProfiles(); } else { api.state = "auth"; api.message = "Retrouvez vos films et séries sur votre télévision."; }
@@ -134,9 +136,23 @@ Item {
     property bool homeLoading: homeRequest.busy
     function headers(token) {
         var h = {"Accept":"application/json", "Accept-Language":"fr", "X-Plex-Language":"fr", "X-Plex-Client-Identifier":saved.clientId,
-            "X-Plex-Product":"Devialet Cinema", "X-Plex-Version":"0.5.0", "X-Plex-Platform":"Freebox"};
+            "X-Plex-Product":AppInfo.name, "X-Plex-Version":AppInfo.version, "X-Plex-Platform":"Freebox"};
         if (token) h["X-Plex-Token"] = token;
         return h;
+    }
+    function validatePreferences() {
+        var ranges = {uiScale:[90,100,95],themeVolume:[5,100,25],playbackQuality:[0,5,0],
+            playbackMode:[0,1,0],playbackAudio:[0,1,0],subtitleSize:[75,150,100],subtitlePolicy:[0,3,0]};
+        for (var key in ranges) {
+            var range = ranges[key], value = Number(saved[key]);
+            saved[key] = isFinite(value) ? Math.max(range[0],Math.min(range[1],Math.round(value))) : range[2];
+        }
+        if ([0,5,10,15,30].indexOf(saved.rewindSeconds) < 0) saved.rewindSeconds = 0;
+        var languages = Plex.languages.map(function(l) { return l.value; });
+        if (languages.indexOf(saved.audioLanguage) < 0) saved.audioLanguage = "";
+        if (languages.indexOf(saved.subtitleLanguage) < 0) saved.subtitleLanguage = "";
+        saved.libraryPreferences = JSON.stringify(Plex.preferenceMap(saved.libraryPreferences));
+        if (!saved.rememberAccount) { saved.authToken = ""; saved.profileToken = ""; }
     }
     function previewMedia(item) {
         previewRequest.cancel();
@@ -200,10 +216,11 @@ Item {
     }
     function failure(status) {
         if (status === 401 && !serverUrl) {
+            resetUserData();
             saved.authToken = "";saved.profileToken="";ownerToken="";accountToken = "";profileName="";profileId="";state = "auth";
             message = "Plex demande une nouvelle connexion."; return;
         }
-        error = status === 401 || status === 403 ? "Ce compte n’a pas accès à cette bibliothèque." : status === 429 ? "Plex reçoit trop de demandes. Réessayez dans un instant." : "Connexion indisponible. Votre compte reste mémorisé. Réessayez.";
+        error = status === 401 || status === 403 ? "Ce compte n’a pas accès à cette bibliothèque." : status === 429 ? "Plex reçoit trop de demandes. Réessayez dans un instant." : status === -2 ? "Le serveur a renvoyé une réponse illisible. Réessayez." : "Connexion indisponible. Votre connexion n’a pas été effacée. Réessayez.";
         console.log("DEVIALET_REQUEST_FAILED " + status);
     }
     function cloud(method, path, token, done, failed) {
@@ -216,7 +233,7 @@ Item {
     function restore() {
         error = ""; state = "starting"; lastAction = "connect"; serverUrl = "";
         cloud("GET", "user", accountToken, function(user) { profileName=user.title || user.friendlyName || user.username || "";profileId=String(user.id || "");console.log("DEVIALET_SESSION_RESTORED");discover(); },function(status){
-            if(status===401 && saved.profileToken){saved.profileToken="";accountToken="";loadProfiles();profileError="Choisissez à nouveau votre profil.";}else failure(status);
+            if(status===401 && ownerToken && accountToken!==ownerToken){resetServerData();saved.profileToken="";accountToken="";loadProfiles();profileError="Choisissez à nouveau votre profil.";}else failure(status);
         });
     }
     function connectAccount() {
@@ -257,9 +274,12 @@ Item {
     function showServers() {
         cancelBrowse();network.cancel();previewRequest.cancel();error = ""; state = "servers"; }
     function chooseServer(index) {
-        cancelBrowse();refreshRequest.cancel();
-        previewRequest.cancel(); previewDetail = ({});
-        activeServer = servers[index]; if (!activeServer) return;
+        var selected = servers[index];
+        if (!selected) return;
+        // Library/rating keys are only unique inside a server. Clear every
+        // scoped cache and pending callback before changing that boundary.
+        resetServerData();
+        activeServer = selected;
         state = "starting"; error = ""; lastAction = "server"; message = "Connexion au serveur…";
         serverUrl = ""; serverToken = ""; candidates = Plex.connections(activeServer); candidateIndex = 0; tryConnection();
     }
@@ -294,14 +314,14 @@ Item {
     function libraryFlag(key,flag) {return !!libraryPrefs && libraryPrefs[flag].indexOf(String(key))>=0;}
     function toggleLibrary(index,flag) {
         var library=libraries[index];if(!library || ["pinned","adult"].indexOf(flag)<0)return;
-        var all;try{all=JSON.parse(saved.libraryPreferences || "{}");}catch(e){all={};}
+        var all = Plex.preferenceMap(saved.libraryPreferences);
         var prefs=libraryPrefs || {pinned:[],adult:[]},key=String(library.key);
         var next={pinned:prefs.pinned.slice(),adult:prefs.adult.slice()},position=next[flag].indexOf(key);
         if(position<0)next[flag].push(key);else next[flag].splice(position,1);
         all[libraryScope]=next;saved.libraryPreferences=JSON.stringify(all);clearSearch();
     }
     function closeLibraries() {
-        if(!libraryPrefs){var all;try{all=JSON.parse(saved.libraryPreferences || "{}");}catch(e){all={};}all[libraryScope]={pinned:[],adult:[]};saved.libraryPreferences=JSON.stringify(all);}
+        if(!libraryPrefs){var all=Plex.preferenceMap(saved.libraryPreferences);all[libraryScope]={pinned:[],adult:[]};saved.libraryPreferences=JSON.stringify(all);}
         firstLibrarySetup=false;showHome();
     }
     function selectLibrary(index) {
@@ -330,11 +350,18 @@ Item {
         if (!browsePath && view === 2) path = Plex.pathWithQuery("/library/sections/" + encodeURIComponent(section.key) + "/collections", {"X-Plex-Container-Start":page * pageSize,"X-Plex-Container-Size":pageSize});
         if (!browsePath && view === 3) path = Plex.pathWithQuery("/playlists", {playlistType:"video",sectionID:section.key,"X-Plex-Container-Start":page * pageSize,"X-Plex-Container-Size":pageSize});
         if (!browsePath && view === 4) path = "/library/sections/" + encodeURIComponent(section.key) + "/genre";
+        // PMS folder responses can ignore container paging; paginate them locally.
+        if (view === 5) path = browsePath || "/library/sections/" + encodeURIComponent(section.key) + "/folder";
         if (!browsePath && view === 1 && searchText) path = Plex.pathWithQuery(path,{title:searchText});
         get(path, function(body) {
             var container = body.MediaContainer || {};
-            items = view === 4 && !browsePath ? (container.Directory || []).map(function(g) { return {title:g.title, key:g.key, type:"category"}; }) : container.Metadata || [];
+            items = view === 4 && !browsePath ? (container.Directory || []).map(function(g) { return {title:g.title, key:g.key, type:"category"}; }) : container.Metadata || (view === 5 ? container.Directory || [] : []);
             items = items.map(function(m) { var copy = JSON.parse(JSON.stringify(m)); if (!copy.librarySectionID) copy.librarySectionID = browsePath && detail.librarySectionID ? detail.librarySectionID : section.key; return copy; }).filter(function(m) { return Plex.allowedMedia(m,libraries); });
+            if (view === 5) {
+                items = items.filter(function(m) { return !!m.type || Plex.folderPath(m.key,section.key); }).map(function(m) { if (!m.type) m.type="folder"; return m; });
+                total = items.length; items = items.slice(page*pageSize,(page+1)*pageSize);
+                libraryLoaded(); return;
+            }
             total = Number(container.totalSize !== undefined ? container.totalSize : container.size || items.length);
             console.log("DEVIALET_ITEMS_OK " + items.length); libraryLoaded();
         });
@@ -443,7 +470,7 @@ Item {
         error = ""; lastAction = "detail"; detail = item;
         if (item.cloudOnly) { detailsLoaded(); return; }
         if (!Plex.allowedMedia(item,libraries)) { error = "Ce titre n’est pas disponible dans les bibliothèques de cette application."; return; }
-        if (item.type === "category" || item.type === "collection" || item.type === "playlist") { openChildren(); return; }
+        if (item.type === "category" || item.type === "collection" || item.type === "playlist" || item.type === "folder") { openChildren(); return; }
         get("/library/metadata/" + encodeURIComponent(item.ratingKey) + "?includeMarkers=1&includeExtras=1&includeChapters=1", function(body) {
             var next = ((body.MediaContainer || {}).Metadata || [item])[0];
             if (!next.librarySectionID) next.librarySectionID = item.librarySectionID;
@@ -452,8 +479,9 @@ Item {
         });
     }
     function openChildren() {
+        if (detail.type === "folder" && !Plex.folderPath(detail.key,section.key)) { error="Ce dossier n’est pas accessible depuis cette bibliothèque."; return; }
         var stack = history.slice(); stack.push({path:browsePath, title:browseTitle, page:page, view:view, home:home, watchlist:watchlist,globalSearch:globalSearch}); history = stack;
-        browsePath = detail.type === "playlist" ? "/playlists/" + encodeURIComponent(detail.ratingKey) + "/items" : detail.type === "category" ? Plex.pathWithQuery(section.browseKey || "/library/sections/" + encodeURIComponent(section.key) + "/all",{genre:String(detail.key),sort:"titleSort:asc"}) : "/library/metadata/" + encodeURIComponent(detail.ratingKey) + "/children";
+        browsePath = detail.type === "folder" ? detail.key : detail.type === "playlist" ? "/playlists/" + encodeURIComponent(detail.ratingKey) + "/items" : detail.type === "category" ? Plex.pathWithQuery(section.browseKey || "/library/sections/" + encodeURIComponent(section.key) + "/all",{genre:String(detail.key),sort:"titleSort:asc"}) : "/library/metadata/" + encodeURIComponent(detail.ratingKey) + "/children";
         browseTitle = Plex.label(detail); page = 0; loadItems();
     }
     function back() {
@@ -465,8 +493,8 @@ Item {
         if (busy || !detail.ratingKey || detail.cloudOnly || !Plex.allowedMedia(detail,libraries)) return;
         error = "";
         get(Plex.pathWithQuery(detail.viewCount ? "/:/unscrobble" : "/:/scrobble", {key:detail.ratingKey,identifier:"com.plexapp.plugins.library"}),function() {
-            var next = JSON.parse(JSON.stringify(detail)); next.viewCount = next.viewCount ? 0 : 1; next.viewOffset = 0; detail = next;
-            var updated = items.slice(); for (var i=0;i<updated.length;i++) if (updated[i].ratingKey === next.ratingKey) updated[i] = next; items = updated;
+            var next = JSON.parse(JSON.stringify(detail)); next.viewCount = next.viewCount ? 0 : 1; next.viewOffset = 0;
+            replaceMedia(next);
         });
     }
     function imageUrl(path, width, height) {
@@ -525,11 +553,26 @@ Item {
         items=items.map(updated);watchlistItems=watchlistItems.map(updated);searchResults=searchResults.map(updated);detail=updated(detail);previewDetail=({});
         hubs=hubs.map(function(h){return {title:h.title,key:h.key,items:h.items.map(updated)};});
     }
+    function replaceMedia(current) {
+        function updated(item) {
+            if (String(item.ratingKey) !== String(current.ratingKey)) return item;
+            // Preserve view-specific fields (Watchlist GUID, library caption).
+            var copy = JSON.parse(JSON.stringify(item));
+            for (var key in current) copy[key] = current[key];
+            return copy;
+        }
+        items = items.map(updated);
+        watchlistItems = watchlistItems.map(updated);
+        searchResults = searchResults.map(updated);
+        detail = updated(detail);
+        previewDetail = ({});
+        hubs = hubs.map(function(h) { return {title:h.title,key:h.key,items:h.items.map(updated)}; });
+    }
     function refreshAfterPlayback(item) {
         if(!Plex.allowedMedia(item,libraries))return;
         refreshRequest.send("GET",serverUrl+"/library/metadata/"+encodeURIComponent(item.ratingKey)+"?includeMarkers=1&includeExtras=1&includeChapters=1",headers(serverToken),function(body){
             var current=((body.MediaContainer || {}).Metadata || [])[0];
-            if(current){if(!current.librarySectionID)current.librarySectionID=item.librarySectionID;if(Plex.allowedMedia(current,libraries) && String(detail.ratingKey)===String(current.ratingKey))detail=current;}
+            if(current){if(!current.librarySectionID)current.librarySectionID=item.librarySectionID;if(Plex.allowedMedia(current,libraries))replaceMedia(current);}
             if(!home)return;
             refreshRequest.send("GET",serverUrl+"/hubs/continueWatching?count=50",headers(serverToken),function(body){if(!home)return;var c=body.MediaContainer || {},rows=c.Metadata || ((c.Hub || [])[0] || {}).Metadata || [];var next=hubs.slice();next[0]={title:"Continuer à regarder",key:"continue",items:rows.filter(function(m){return Plex.allowedMedia(m,pinnedLibraries);})};hubs=next;items=next[0].items;},function(){});
         },function(){});
@@ -575,7 +618,8 @@ Item {
         browsePath=Plex.pathWithQuery("/library/sections/"+encodeURIComponent(library.key)+"/all",{actor:actor.id,sort:"titleSort:asc"});browseTitle="Avec "+(actor.tag || "cet interprète");page=0;loadItems();
     }
     function loadProfiles() {
-        profileReturnState=state==="library" ? "library" : "starting";cancelBrowse();network.cancel();previewRequest.cancel();
+        if (state !== "profiles") profileReturnState = state === "library" ? "library" : "starting";
+        cancelBrowse();network.cancel();previewRequest.cancel();
         state="profiles";profileError="";profilesLoading=true;profileSelecting=false;profiles=[];
         var h=headers(ownerToken || saved.authToken);h.Accept="application/xml";
         profileRequest.send("GET","https://plex.tv/api/home/users",h,function(body){profilesLoading=false;profiles=body.User || [];if(!profiles.length)profileError="Aucun profil disponible pour ce compte.";},function(){profilesLoading=false;profileError="Les profils Plex sont indisponibles. Réessayez.";},12000,"xml");
@@ -591,10 +635,31 @@ Item {
             resetUserData();saved.profileToken=saved.rememberAccount ? token : "";accountToken=token;profileName=profile.title || profile.username || "";profileId=String(profile.id);discover();
         },function(status){profilesLoading=false;profileSelecting=false;profileError=status===401 || status===403 ? "Code PIN incorrect ou accès refusé." : "Changement de profil impossible. Réessayez.";},12000,"xml");
     }
-    function cancelProfiles() { if(profilesLoading)return;profileError="";if(serverUrl && profileReturnState==="library"){state="library";if(home)loadItems();}else{state="auth";message="Connectez votre compte ou choisissez un profil.";} }
+    function cancelProfiles() {
+        profileRequest.cancel();
+        profilesLoading = false;
+        profileSelecting = false;
+        profileError = "";
+        if (serverUrl && profileReturnState === "library") {
+            state = "library";
+            if (home) loadItems();
+        } else {
+            state = "auth";
+            message = "Connectez votre compte ou choisissez un profil.";
+        }
+    }
     function resetUserData() {
+        resetServerData();
+        servers = [];
+    }
+    function resetServerData() {
         cancelBrowse();network.cancel();previewRequest.cancel();refreshRequest.cancel();nextRequest.cancel();progressRequest.cancel();progressRetry.stop();progressQueue=[];pendingFeature=null;
-        serverUrl="";serverToken="";serverName="";connectionLabel="";activeServer=({});candidates=[];candidateIndex=0;section=({});genres=[];servers=[];libraries=[];items=[];hubs=[];history=[];watchlistItems=[];watchlistReady=false;watchlist=false;home=false;globalSearch=false;searchResults=[];searchText="";detail=({});previewDetail=({});
+        serverUrl="";serverToken="";serverName="";connectionLabel="";activeServer=({});candidates=[];candidateIndex=0;
+        section=({});genres=[];libraries=[];items=[];hubs=[];history=[];
+        watchlistItems=[];watchlistReady=false;watchlist=false;home=false;globalSearch=false;
+        searchResults=[];searchText="";detail=({});previewDetail=({});
+        page=0;total=0;browsePath="";browseTitle="";filterIndex=0;sortIndex=0;genreKey="";genreTitle="Tous les genres";
+        notice="";searchNotice="";homeNotice="";firstLibrarySetup=false;
     }
     function retry() {
         error = "";

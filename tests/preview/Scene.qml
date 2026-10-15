@@ -108,7 +108,7 @@ Item {
         signal playbackRequested(string url, var media, int offset)
         function imageUrl(path,w,h) { return path; }
         function selectLibrary(index) { globalSearch=false;section = libraries[index]; browseTitle = section.title; home = false; watchlist = false; view = 1; browsePath = ""; history = []; items = allItems; libraryLoaded(); }
-        function selectView(index) { globalSearch=false;view = index; home = false; watchlist = false; browsePath = ""; history = []; items = index === 2 || index === 3 ? [] : index === 4 ? [{title:"Comédie",key:"3",type:"category"}] : allItems; libraryLoaded(); }
+        function selectView(index) { browseTitle=section.title;page=0;globalSearch=false;view = index; home = false; watchlist = false; browsePath = ""; history = []; items = index === 2 ? [] : index === 3 ? [{title:"Soirée cinéma",ratingKey:"10",type:"playlist",leafCount:3}] : index === 5 ? [{title:"Films à découvrir",key:"/library/sections/1/folder?parent=1",type:"folder"}] : index === 4 ? [{title:"Comédie",key:"3",type:"category"}] : allItems; total=items.length;libraryLoaded(); }
         function showHome() { globalSearch=false;home = true; watchlist = false; view = 0; browseTitle = "Accueil"; items = allItems; libraryLoaded(); }
         function showWatchlist() { globalSearch=false;home = false; watchlist = true; view = 1; browseTitle = "Liste de suivis"; items = allItems; libraryLoaded(); }
         function search(text) { globalSearch=true;searchText = text; home = false; watchlist = false; view = 1; items = allItems; libraryLoaded(); }
@@ -117,7 +117,7 @@ Item {
         function loadGenres() { if (!deferGenres) genresLoaded(); }
         function chooseGenre(index) { genreTitle = genres[index].title; page = 0; libraryLoaded(); }
         function openItem(index) { openMedia(items[index]); }
-        function openMedia(item) { detail = item; if (["category","collection","playlist"].indexOf(item.type) >= 0) openChildren(); else detailsLoaded(); }
+        function openMedia(item) { detail = item; if (["category","collection","playlist","folder"].indexOf(item.type) >= 0) openChildren(); else detailsLoaded(); }
         function changePage(delta) { page += delta; libraryLoaded(); }
         function openChildren() { history = history.concat([{path:browsePath,title:browseTitle,page:page,items:items,view:view,home:home}]); browsePath = "/children"; browseTitle = detail.title; items = allItems; page = 0; libraryLoaded(); }
         function play(resume) { playCount++; }

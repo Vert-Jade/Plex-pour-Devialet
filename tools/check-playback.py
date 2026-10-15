@@ -2,6 +2,7 @@
 
 Uses a visible library sample from .local/playback-probe-media.json. Restores
 Plex's selected tracks afterwards and serves the QA config only to this Player.
+An isolated application identifier preserves the normal app's account/settings.
 """
 import argparse,functools,http.server,ipaddress,json,re,socket,threading,urllib.request,urllib.parse,winreg
 from pathlib import Path
@@ -57,22 +58,29 @@ def main():
             elif self.path=='/PlaybackCheck.qml':data=(ROOT/'tests/PlaybackCheck.qml').read_bytes()
             elif self.path=='/manifest.json':
                 manifest=json.loads((ROOT/'app/manifest.json').read_text(encoding='utf8'))
+                manifest['identifier']='fr.local.plexdevialet.playbackcheck'
                 if not args.integration:manifest['entryPoints']['main']['file']='PlaybackCheck.qml'
                 data=json.dumps(manifest).encode()
             elif self.path=='/main.qml' and args.integration:
                 main=(ROOT/'app/main.qml').read_text(encoding='utf8').replace('plex.timeline(','qaTimeline(')
+                main=main.replace('onSourceStopping: {','onSourceStopping: { console.log("QA_DIAG source_stopping");')
+                main=main.replace('onSourceReady: {','onSourceReady: { console.log("QA_DIAG source_ready");')
                 data=(main[:main.rfind('}')]+(ROOT/'tests/MainPlaybackCheck.inc').read_text(encoding='utf8')+'\n}').encode()
             if data is not None:
                 self.send_response(200);self.send_header('Content-Length',str(len(data)));self.send_header('Cache-Control','no-store');self.end_headers();self.wfile.write(data);return
             super().do_GET()
-    completed=threading.Event();report=[]
+    completed=threading.Event();report=[];closed_streams=[]
     def output(port):
         try:
             with socket.create_connection((player,port),timeout=5) as conn:
                 conn.settimeout(None);buffer=''
                 while not completed.is_set():
                     data=conn.recv(4096)
-                    if not data:break
+                    if not data:
+                        print('QA_DIAG diagnostic_stream_closed',flush=True);closed_streams.append(port)
+                        if len(closed_streams)==2 and not completed.is_set():
+                            report.append('QA_FAIL diagnostic_connection_lost');completed.set()
+                        break
                     buffer+=data.decode('utf8',errors='replace')
                     while '\n' in buffer:
                         line,buffer=buffer.split('\n',1)
@@ -80,6 +88,9 @@ def main():
                         if marker:
                             clean=re.sub(r'\x1b\[[0-9;]*m','',marker.group());report.append(clean);print(clean,flush=True)
                             if clean.startswith('QA_DONE'):completed.set()
+                        elif 'DEVIALET_' in line:
+                            marker=re.search(r'DEVIALET_[A-Z_]+(?: -?\d+)?',line)
+                            if marker:print(marker.group(),flush=True)
                         elif any(x in line for x in ('TypeError','ReferenceError','is not a type','Cannot assign')):
                             print(re.sub(r'https?://\S+','[URL]',line),flush=True)
                     buffer=buffer[-16384:]

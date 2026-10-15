@@ -1,5 +1,5 @@
 {
-  "name": "Plex pour Devialet",
+  "name": "Le Pavillon de Jade pour Plex",
   "identifier": "fr.local.plexdevialet",
   "description": "Vos films et séries Plex, à la télécommande",
   "entryPoints": {"main": {"file": "main.qml", "default": true}},

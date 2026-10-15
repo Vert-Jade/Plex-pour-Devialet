@@ -16,7 +16,7 @@ Item {
         GlowFrame { visible: button.highlighted; corner: 4 }
         Behavior on color { ColorAnimation { duration: 90 } }
     }
-    Text {
+    Text { textFormat: Text.PlainText;
         x: 17; width: parent.width - 56; anchors.verticalCenter: parent.verticalCenter
         text: button.text; color: button.highlighted ? "#111111" : button.filtered ? "#59d6a6" : "#e6e6e6"
         font.family: typeface.name; font.pixelSize: 18; elide: Text.ElideRight

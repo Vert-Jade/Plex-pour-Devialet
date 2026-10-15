@@ -3,6 +3,7 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const vm=require('node:vm');
 const plex={};vm.createContext(plex);vm.runInContext(fs.readFileSync('app/Plex.js','utf8').replace('.pragma library',''),plex);
+const AppInfo={};vm.createContext(AppInfo);vm.runInContext(fs.readFileSync('app/AppInfo.js','utf8').replace('.pragma library',''),AppInfo);
 const source=fs.readFileSync('app/PlexService.qml','utf8').replace(/\r\n/g,'\n');
 const functions=source.slice(source.indexOf('    function headers'),source.indexOf('    Timer {\n        id: poll'))+source.slice(source.indexOf('    function pollPin'),source.lastIndexOf('}'));
 function setup(){
@@ -19,7 +20,7 @@ function setup(){
  progressRetry:{running:false,stop(){this.running=false},restart(){this.running=true}}};
  Object.assign(s.saved,{autoSkipIntro:true,autoSkipCredits:true,rewindSeconds:0,uiScale:95,themeMusic:true,themeVolume:25,rememberAccount:true,allowAdultSearch:false,libraryPreferences:'{"scope":{"pinned":["1"],"adult":[]}}'});s.ownerToken='saved';s.libraryScope='scope';
  Object.defineProperties(s,{libraryPrefs:{get(){return plex.libraryPreferences(s.saved.libraryPreferences,s.libraryScope)}},pinnedLibraries:{get(){return s.libraries.filter(l=>s.libraryPrefs && s.libraryPrefs.pinned.includes(String(l.key)))}},adultLibraries:{get(){return s.libraryPrefs ? s.libraryPrefs.adult : []}}});
- s.api=s;vm.createContext(s);vm.runInContext(functions,s);return s;
+ s.api=s;s.AppInfo=AppInfo;vm.createContext(s);vm.runInContext(functions,s);return s;
 }
 
 test('global search queries allowed libraries only and filters hidden results',()=>{
@@ -264,6 +265,36 @@ test('revoked profile token never silently restores the owner',()=>{
  assert.equal(s.state,'profiles');assert.equal(s.accountToken,'');assert.equal(s.saved.authToken,'saved');assert.match(s.profilePending.url,/home\/users$/);
 });
 
+test('an expired session-only profile keeps the owner available for profile selection',()=>{
+ const s=setup();s.accountToken='revoked';s.saved.profileToken='';s.saved.authToken='';s.saved.rememberAccount=false;
+ s.items=[{ratingKey:'cached'}];s.restore();s.pending.failed(401);
+ assert.equal(s.state,'profiles');assert.equal(s.ownerToken,'saved');assert.equal(s.accountToken,'');assert.equal(s.items.length,0);
+ assert.equal(s.saved.authToken,'');assert.equal(s.profilePending.headers['X-Plex-Token'],'saved');
+});
+
+test('folder navigation handles PMS JSON entries, local paging and parent restoration',()=>{
+ const s=setup();s.serverUrl='https://server';s.selectView(5);
+ assert.equal(new URL(s.pending.url).pathname,'/library/sections/1/folder');
+ const folders=Array.from({length:43},(_,i)=>({title:'Folder '+i,key:'/library/sections/1/folder?parent='+i}));
+ s.pending.done({MediaContainer:{Metadata:folders,size:43}});
+ assert.equal(s.total,43);assert.equal(s.items.length,40);assert.equal(s.items[0].type,'folder');
+ s.changePage(1);s.pending.done({MediaContainer:{Metadata:folders,size:43}});assert.equal(s.items.length,3);
+ s.openItem(0);assert.match(s.pending.url,/folder\?parent=40$/);assert.equal(s.page,0);
+ s.pending.done({MediaContainer:{Metadata:[{ratingKey:'42',type:'movie',key:'/library/metadata/42'}]}});
+ s.openItem(0);assert.match(s.pending.url,/metadata\/42\?includeMarkers=1/);
+ s.back();assert.equal(s.page,1);assert.equal(s.view,5);assert.equal(s.browsePath,'');
+});
+
+test('folder listings accept XML-style Directory rows and refuse foreign or traversing paths',()=>{
+ const s=setup();s.selectView(5);
+ s.pending.done({MediaContainer:{Directory:[{key:'/library/sections/1/folder?parent=2',title:'Allowed'},
+ {key:'/library/sections/2/folder',title:'Other'},{key:'https://foreign.example/',title:'External'},
+ {key:'/library/sections/1/../folder',title:'Traversal'}]}});
+ assert.equal(s.items.length,1);assert.equal(s.items[0].title,'Allowed');
+ s.openMedia({type:'folder',key:'/library/sections/2/folder',librarySectionID:'1'});
+ assert.ok(s.error);assert.equal(s.history.length,0);
+});
+
 test('cinema trailer continues to its film only on completion and once',()=>{
  const s=setup();s.serverUrl='https://server';s.saved.cinemaTrailers=true;
  s.detail={ratingKey:'1',type:'movie',librarySectionID:'1',Media:[{Part:[{key:'/library/parts/1/file.mkv'}]}],Extras:{Metadata:[{ratingKey:'2',extraType:1,Media:[{Part:[{key:'/library/parts/2/file.mp4'}]}]}]}};
@@ -297,4 +328,54 @@ test('remember-account opt out clears only persistent tokens and explicit sign o
 test('relative server paths reject encoded traversal, authority changes and control characters',()=>{
  for(const path of ['//foreign/a','/../a','/%2e%2e/a','/a/./b','/\\foreign/a','/%2fforeign/a','/a#fragment','/a%0ab'])assert.equal(plex.safePath(path),false,path);
  assert.equal(plex.safePath('/library/metadata/42?includeExtras=1'),true);
+});
+
+test('switching servers discards every old cache even when rating keys overlap',()=>{
+ const s=setup();s.serverUrl='https://old';s.serverToken='old-secret';s.profileId='profile';
+ s.servers=[{clientIdentifier:'new-server',accessToken:'new-secret',connections:[{uri:'https://new'}]}];
+ const old={ratingKey:'42',librarySectionID:'1',title:'Old private title'};
+ s.items=[old];s.watchlistItems=[old];s.searchResults=[old];s.detail=old;s.previewDetail=old;
+ s.hubs=[{items:[old]}];s.watchlistReady=true;s.total=200;s.page=3;s.browsePath='/old';
+ s.progressQueue=[{headers:{'X-Plex-Token':'old-secret'}}];s.progressRetry.running=true;
+ s.chooseServer(0);
+ assert.equal(s.state,'starting');assert.equal(s.serverToken,'');assert.equal(s.servers.length,1);
+ for(const key of ['items','hubs','libraries','watchlistItems','searchResults','progressQueue'])assert.equal(s[key].length,0,key);
+ assert.equal(s.detail.title,undefined);assert.equal(s.previewDetail.title,undefined);
+ assert.equal(s.total,0);assert.equal(s.browsePath,'');assert.equal(s.profileId,'profile');
+ assert.equal(s.pending.headers['X-Plex-Token'],undefined);assert.equal(s.pending.url,'https://new/identity');
+ s.pending.done({MediaContainer:{machineIdentifier:'new-server'}});
+ assert.equal(s.serverToken,'new-secret');assert.equal(s.pending.url,'https://new/library/sections');
+});
+
+test('refreshing or cancelling profiles preserves the originating screen',()=>{
+ const s=setup();s.state='library';s.serverUrl='https://server';let cancelled=0;
+ s.profileRequest.cancel=()=>cancelled++;
+ s.loadProfiles();s.profilePending.done({User:[{id:'1',title:'Test'}]});
+ s.loadProfiles();assert.equal(s.profileReturnState,'library');assert.equal(s.profilesLoading,true);
+ s.cancelProfiles();assert.equal(cancelled,1);assert.equal(s.profilesLoading,false);
+ assert.equal(s.state,'library');assert.equal(s.serverUrl,'https://server');
+});
+
+test('watched status propagates to Home, search and Watchlist without losing local fields',()=>{
+ const s=setup();s.serverUrl='https://server';const item={ratingKey:'42',librarySectionID:'1',viewCount:0};
+ s.detail=item;s.items=[item];s.searchResults=[item];s.hubs=[{title:'Home',key:'home',items:[item]}];
+ s.watchlistItems=[{...item,watchlistGuid:'plex://movie/abc'}];s.markWatched();
+ assert.equal(s.hubs[0].items[0].viewCount,0);s.pending.done({});
+ for(const row of [s.detail,s.items[0],s.searchResults[0],s.watchlistItems[0],s.hubs[0].items[0]])assert.equal(row.viewCount,1);
+ assert.equal(s.watchlistItems[0].watchlistGuid,'plex://movie/abc');
+});
+
+test('invalid stored settings recover safely without dropping a valid remembered account',()=>{
+ for(const value of ['null','[]','false','"value"','broken']){
+  const s=setup();s.saved.libraryPreferences=value;s.toggleLibrary(0,'pinned');
+  assert.equal(s.pinnedLibraries.length,1);
+ }
+ const s=setup();Object.assign(s.saved,{uiScale:500,playbackQuality:-5,subtitlePolicy:90,audioLanguage:'unknown',libraryPreferences:'null'});
+ s.validatePreferences();assert.equal(s.saved.uiScale,100);assert.equal(s.saved.playbackQuality,0);
+ assert.equal(s.saved.subtitlePolicy,3);assert.equal(s.saved.audioLanguage,'');assert.equal(s.saved.libraryPreferences,'{}');
+ assert.equal(s.saved.authToken,'saved');s.saved.rememberAccount=false;s.validatePreferences();assert.equal(s.saved.authToken,'');
+});
+
+test('transport paths reject hidden control characters and metadata traversal',()=>{
+ for(const path of ['/a\tb','/a\u0007b','/a%09b','/a%7fb','/a b'])assert.equal(plex.safePath(path),false);
 });

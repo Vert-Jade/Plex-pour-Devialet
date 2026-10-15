@@ -1,15 +1,22 @@
-VERIFICATIONS — PLEX POUR DEVIALET 0.5.0-dev
-Etat local au 14 octobre 2026 ; version en développement.
+VERIFICATIONS — LE PAVILLON DE JADE POUR PLEX 0.5.1-dev
+Etat local au 15 octobre 2026 ; version en développement.
 
-- Tests JavaScript : 63 scénarios (logique simulée et chemins de données).
+- Tests JavaScript : 77 scénarios (logique simulée et chemins de données).
 - Tests Python : 8 scénarios ; lanceur, index public et paquet reproductible.
 - Rendu QML PC : composants réels, données fictives, 720p et 1080p.
 - Catalogue Devialet : recherche, collections, métadonnées, acteur,
-  profils Home XML et épisode suivant : 6 contrôles réussis.
+  profils Home XML, épisode suivant, playlists et dossiers : 10 contrôles réussis.
 - Lecture Devialet : direct, reprise, intro injectée, panne simulée,
   conversion, pistes en pause, déplacement et nettoyage : réussis.
+- Essai renforcé : commandes Lecture/Pause répétées, échec final libérant
+  la source et réessai explicite avec image/son : réussi en parcours direct et conversion.
 - Après-lecture : fin contrôlée, compte à rebours, annulation puis
   ouverture de l’épisode suivant avec image/son : réussis.
+
+Une variante de nettoyage par composants QML temporaires a entraîné des
+interruptions de diagnostic sur le Player pendant cette passe. Elle a été
+écartée après comparaison avec des transports indépendants ; la version
+retenue borne leur durée et leur nombre. Une recette longue reste nécessaire.
 
 Les outils de lecture neutralisent les écritures de progression et restaurent
 les pistes modifiées. Ce ne sont pas des essais de film entier ni de réseau distant.

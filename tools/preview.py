@@ -244,6 +244,20 @@ key(Qt.Key_Return);key(Qt.Key_Down);key(Qt.Key_Return)
 assert service.property('view') == 2
 capture('collections')
 key(Qt.Key_Return);key(Qt.Key_Up);key(Qt.Key_Return);assert service.property('view') == 1
+# The selector exposes both playlists and folders without losing remote focus.
+key(Qt.Key_Return);key(Qt.Key_Down);key(Qt.Key_Down);key(Qt.Key_Return)
+assert service.property('view') == 3
+capture('listes-de-lecture')
+key(Qt.Key_Down);key(Qt.Key_Return);assert service.property('browsePath')
+key(Qt.Key_Escape);assert not service.property('browsePath') and service.property('view') == 3
+shell.setProperty('zone',4);key(Qt.Key_Return);key(Qt.Key_Down);key(Qt.Key_Return)
+assert service.property('view') == 5
+capture('dossiers')
+key(Qt.Key_Down);key(Qt.Key_Return);assert service.property('browsePath')
+key(Qt.Key_Escape);assert not service.property('browsePath') and service.property('view') == 5
+shell.setProperty('zone',4);key(Qt.Key_Return)
+for _ in range(3):key(Qt.Key_Up)
+key(Qt.Key_Return);assert service.property('view') == 1
 key(Qt.Key_Menu)
 for _ in range(6):key(Qt.Key_Down)
 key(Qt.Key_Right);assert service.property('audioLanguage') == 'fra'

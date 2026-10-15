@@ -28,6 +28,8 @@ Item {
     signal failed(string message)
     Request { id: request }
     Request { id: heartbeat }
+    property var cleanupRequests: []
+    Timer { interval:1000; repeat:true; running:session.cleanupRequests.length>0; onTriggered:session.pruneCleanup() }
     Timer { interval: 20000; repeat: true; running: session.active && !!session.sessionId
         onTriggered: heartbeat.send("GET",api.serverUrl+Plex.pathWithQuery("/video/:/transcode/universal/ping",{session:session.sessionId}),api.headers(api.serverToken),function(){},function(){},5000)
     }
@@ -35,11 +37,30 @@ Item {
         heartbeat.cancel();
         if (!sessionId) return;
         var old=sessionId; sessionId="";
-        // Independent request: starting the next session must not cancel cleanup.
-        var xhr=new XMLHttpRequest();
-        xhr.open("GET",api.serverUrl+Plex.pathWithQuery("/video/:/transcode/universal/stop",{session:old}));
-        var h=api.headers(api.serverToken);for(var k in h) xhr.setRequestHeader(k,h[k]);
-        xhr.send();
+        // Keep cleanup independent without creating/destroying QML request
+        // objects during native playback transitions (unstable on the Player).
+        var current=null;
+        try {
+            current=new XMLHttpRequest();
+            if (cleanupRequests.length>=16) finishCleanup(cleanupRequests[0].xhr,true);
+            cleanupRequests=cleanupRequests.concat([{xhr:current,expires:Date.now()+5000}]);
+            current.onreadystatechange=function() {
+                if (current.readyState===XMLHttpRequest.DONE) finishCleanup(current,false);
+            };
+            current.open("GET",api.serverUrl+Plex.pathWithQuery("/video/:/transcode/universal/stop",{session:old}));
+            var h=api.headers(api.serverToken);
+            for (var key in h) current.setRequestHeader(key,h[key]);
+            current.send();
+        } catch(e) { if(current) finishCleanup(current,true); }
+    }
+    function finishCleanup(current, abort) {
+        current.onreadystatechange=null;
+        cleanupRequests=cleanupRequests.filter(function(entry){return entry.xhr!==current;});
+        if (abort) { try { current.abort(); } catch(e) {} }
+    }
+    function pruneCleanup() {
+        var pending=cleanupRequests.slice(),now=Date.now();
+        for(var i=0;i<pending.length;i++) if(pending[i].expires<=now) finishCleanup(pending[i].xhr,true);
     }
     function stop() { generation++; request.cancel(); active=false; release(); streaming=false; }
     Component.onDestruction: stop()
@@ -53,7 +74,11 @@ Item {
         audioId=tracks.audioId;subtitleId=tracks.subtitleId;
     }
     function options() { return {mediaIndex:mediaIndex,audioId:audioId,subtitleId:subtitleId,qualityIndex:qualityIndex,modeIndex:modeIndex,audioOutput:audioOutput,subtitleSize:subtitleSize,retryStage:retryStage,offset:offset}; }
-    function fail(message) { release(); error=message; status=""; failed(message); }
+    function fail(message) {
+        generation++; request.cancel(); release(); streaming=false;
+        // Keep the media/options available for an explicit retry.
+        error=message; status=""; failed(message);
+    }
     function prepare(position) {
         if (!active) return;
         generation++; var version=generation;request.cancel();release();error="";

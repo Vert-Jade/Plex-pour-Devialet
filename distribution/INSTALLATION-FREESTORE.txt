@@ -1,5 +1,5 @@
-DISTRIBUTION DE PLEX POUR DEVIALET
-Etat au 14 octobre 2026 : aucune publication ou installation FreeStore validée.
+DISTRIBUTION DE LE PAVILLON DE JADE POUR PLEX
+Etat au 15 octobre 2026 : aucune publication ou installation FreeStore validée.
 
 Le code source peut être partagé indépendamment de l’activation FreeFactory.
 Le double-clic Lancer-Cinema.cmd permet un essai développeur ; le PC de lancement

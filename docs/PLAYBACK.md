@@ -2,7 +2,7 @@
 
 ## Stratégie
 
-Le fichier original est tenté en premier lorsque les options le permettent. Si le lecteur échoue, reste bloqué 20 secondes ou subit trois blocages d’au moins trois secondes dans une minute, la préparation Plex reprend à la position connue. Le premier échec de lancement est borné par un délai de 45 secondes. Une pause demandée ou le menu d’options ne compte pas comme un blocage.
+Le fichier original est tenté en premier lorsque les options le permettent. Si le lecteur échoue, reste bloqué 20 secondes ou subit trois blocages d’au moins trois secondes dans une minute, la préparation Plex reprend à la position connue. Le premier échec de lancement est borné par un délai de 45 secondes. Une pause demandée ou le menu d’options ne compte pas comme un blocage. Un déplacement direct qui ne se termine pas en 12 secondes déclenche également la récupération, y compris en pause.
 
 Le lecteur Qt embarqué ne permet pas de sélectionner toutes les pistes dans un fichier direct. Une piste différente du défaut du fichier, des sous-titres sélectionnés, un fichier en plusieurs parties ou une qualité manuelle peuvent donc imposer le passage par le serveur dès le départ. La compatibilité des choix demandés prime dans ces cas.
 
@@ -21,7 +21,7 @@ Le lecteur Qt embarqué ne permet pas de sélectionner toutes les pistes dans un
 
 Les plafonds concernent la préparation serveur, pas le fichier original lu directement. L’application n’altère pas les fichiers de la médiathèque.
 
-Pause, reprise, changement de piste et déplacement conservent la position absolue. Les anciennes sessions de conversion sont arrêtées lors d’un changement ; les sessions actives reçoivent un maintien, y compris en pause. La progression est envoyée régulièrement et à l’arrêt. L’arrêt final est réessayé deux fois en cas de panne temporaire ; cette file est en mémoire, pas durable après une coupure électrique.
+Pause, reprise, changement de piste et déplacement conservent la position absolue. L’arrêt des anciennes sessions de conversion est demandé lors d’un changement, avec une requête indépendante bornée à cinq secondes ; les sessions actives reçoivent un maintien, y compris en pause. Après épuisement des replis, le lecteur libère la source et propose les options pour réessayer. La progression est envoyée régulièrement et à l’arrêt. L’arrêt final est réessayé deux fois en cas de panne temporaire ; cette file est en mémoire, pas durable après une coupure électrique.
 
 ## Limites
 

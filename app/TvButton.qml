@@ -23,7 +23,7 @@ FocusScope {
         GlowFrame { visible: control.highlighted && control.glow; corner: 4 }
         Behavior on color { ColorAnimation { duration: 100 } }
     }
-    Text { font.family: typeface.name;
+    Text { textFormat: Text.PlainText; font.family: typeface.name;
         anchors.fill: parent; anchors.leftMargin: control.icon ? 47 : 16; anchors.rightMargin: 16
         text: control.text; color: control.highlighted || control.primary ? "#141414" : "#f0f0f0"
         font.pixelSize: control.textSize; font.weight: Font.DemiBold

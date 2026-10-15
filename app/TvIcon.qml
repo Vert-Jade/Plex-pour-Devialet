@@ -19,6 +19,7 @@ Canvas {
         else if (kind === "right") { c.moveTo(9,5); c.lineTo(16,12); c.lineTo(9,19); }
         else if (kind === "check") { c.moveTo(5,12); c.lineTo(10,17); c.lineTo(19,7); }
         else if (kind === "plus") { c.moveTo(12,4);c.lineTo(12,20);c.moveTo(4,12);c.lineTo(20,12); }
+        else if (kind === "folder") { c.moveTo(2,5);c.lineTo(9,5);c.lineTo(11,8);c.lineTo(22,8);c.lineTo(22,21);c.lineTo(2,21);c.closePath(); }
         else if (kind === "arrows") { c.moveTo(9,5);c.lineTo(12,2);c.lineTo(15,5);c.moveTo(9,19);c.lineTo(12,22);c.lineTo(15,19);c.moveTo(5,9);c.lineTo(2,12);c.lineTo(5,15);c.moveTo(19,9);c.lineTo(22,12);c.lineTo(19,15); }
         else if (kind === "info") { c.moveTo(12,10);c.lineTo(12,20);c.moveTo(10,20);c.lineTo(15,20);c.moveTo(10,10);c.lineTo(12,10);c.moveTo(12,4);c.lineTo(12,5); }
         else if (kind === "skip") { c.moveTo(3,5);c.lineTo(11,12);c.lineTo(3,19);c.closePath();c.moveTo(13,5);c.lineTo(21,12);c.lineTo(13,19);c.closePath();c.fill(); }

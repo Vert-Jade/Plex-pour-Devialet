@@ -30,15 +30,18 @@
                 xhr.onreadystatechange=function(){if(xhr.readyState===XMLHttpRequest.DONE && xhr.status===200)root.qaConfig=JSON.parse(xhr.responseText);};
                 xhr.open("GET",Qt.resolvedUrl("qa-config.json"));xhr.send();return;
             }
-            if(!root.qaConfig || plex.state!=="library")return;
+            if(!root.qaConfig || (root.qaPhase===0 && plex.state!=="auth"))return;
             if(root.qaPhase===0){
+                // Use only the isolated QA application's state, without cloud login.
+                plex.serverUrl=root.qaConfig.serverUrl;plex.serverToken=root.qaConfig.token;
+                plex.libraries=root.qaConfig.libraries;plex.connectionLabel="Réseau local";plex.state="library";
                 root.qaSavedNext=plex.autoNextEpisode;plex.autoNextEpisode=true;root.qaSavedIntro=plex.autoSkipIntro;root.qaSavedAudio=plex.playbackAudio;root.qaSavedMode=plex.playbackMode;root.qaSavedQuality=plex.playbackQuality;
                 console.log("QA_SAVED_OPTIONS mode="+root.qaSavedMode+" quality="+root.qaSavedQuality+" audio="+root.qaSavedAudio);
                 plex.autoSkipIntro=true;plex.playbackAudio=0;plex.playbackMode=0;plex.playbackQuality=0;
                 var media=root.qaConfig.media;media.Marker=[{type:"intro",startTimeOffset:62000,endTimeOffset:90000}];
                 root.qaPhase=1;shell.startPlayback("",media,60000);return;
             }
-            if(stream.error){root.qaReport("main_server_error",false);root.qaFinish();return;}
+            if(stream.error && root.qaPhase!==83){root.qaReport("main_server_error",false);root.qaFinish();return;}
             if(root.switchingSource || root.resumePending || stream.busy)return;
             if(root.qaPhase===1 && root.lastPosition>=91000 && player.position>1000){
                 root.qaReport("main_intro_and_absolute_timeline",root.lastPosition<100000 && (root.qaConfig.direct ? !stream.streaming && !stream.sessionId : stream.offset===90000));
@@ -83,6 +86,25 @@
             }
             if(root.qaPhase===8 && root.watching && player.position>1000){
                 root.qaReport("postplay_next_episode_image_and_sound",player.hasAudio && player.hasVideo && root.playingItem.ratingKey!==root.qaConfig.media.ratingKey);
+                root.setPlaybackPaused(true);root.setPlaybackPaused(true);
+                root.qaPhase=81;return;
+            }
+            if(root.qaPhase===81 && player.playbackState===MediaPlayer.PausedState){
+                root.qaReport("pause_key_idempotent",root.pausedIntent && player.playbackState===MediaPlayer.PausedState);
+                root.setPlaybackPaused(false);root.setPlaybackPaused(false);
+                root.qaPhase=82;return;
+            }
+            if(root.qaPhase===82 && player.playbackState===MediaPlayer.PlayingState){
+                root.qaReport("play_key_idempotent",!root.pausedIntent);
+                stream.retryStage=3;root.playbackFailure();
+                root.qaPhase=83;return;
+            }
+            if(root.qaPhase===83){
+                root.qaReport("terminal_failure_releases_encoder_and_source",!!stream.error && !stream.sessionId && !stream.streaming && player.source.toString()==="" && !root.resumePending);
+                stream.change("retry",0,root.lastPosition);root.qaPhase=9;return;
+            }
+            if(root.qaPhase===9 && root.watching && player.position>1000){
+                root.qaReport("explicit_retry_after_terminal_failure",!stream.error && player.hasAudio && player.hasVideo);
                 root.qaFinish();
             }
         }

@@ -36,9 +36,9 @@ FocusScope {
     }
     Rectangle {anchors.fill:parent;color:"#080808"}
     FontLoader {id:typeface;source:"fonts/NotoSans-Regular.ttf"}
-    Image {x:96;y:48;width:100;height:48;source:"assets/plex-logo.svg";fillMode:Image.PreserveAspectFit}
-    Text {x:96;y:130;text:screen.pinMode ? "Code PIN du profil" : "Qui regarde ?";font.family:typeface.name;font.pixelSize:42;font.weight:Font.DemiBold;color:"white"}
-    Text {x:98;y:193;width:1080;text:api.profilesLoading ? "Connexion à Plex…" : api.profileError || (screen.pinMode ? "Saisissez les quatre chiffres de votre code Plex Home." : "Chaque profil retrouve ses bibliothèques et ses lectures en cours.");font.family:typeface.name;font.pixelSize:20;color:api.profileError ? "#ffbaba" : "#bdbdbd";wrapMode:Text.Wrap}
+    Brand {x:96;y:36;titleSize:23;logoWidth:70;height:76}
+    Text { textFormat: Text.PlainText;x:96;y:130;text:screen.pinMode ? "Code PIN du profil" : "Qui regarde ?";font.family:typeface.name;font.pixelSize:42;font.weight:Font.DemiBold;color:"white"}
+    Text { textFormat: Text.PlainText;x:98;y:193;width:1080;text:api.profilesLoading ? "Connexion à Plex…" : api.profileError || (screen.pinMode ? "Saisissez les quatre chiffres de votre code Plex Home." : "Chaque profil retrouve ses bibliothèques et ses lectures en cours.");font.family:typeface.name;font.pixelSize:20;color:api.profileError ? "#ffbaba" : "#bdbdbd";wrapMode:Text.Wrap}
     ListView {x:84;y:254;width:1112;height:374;clip:true;interactive:false;visible:!screen.pinMode;spacing:10;currentIndex:screen.selected;highlightRangeMode:ListView.ApplyRange;highlightMoveDuration:100
         id: profileList
         onCurrentIndexChanged: profileScroll.restart()
@@ -49,9 +49,9 @@ FocusScope {
             TvButton {x:12;y:8;width:1080;height:54;text:(modelData.title || modelData.username || "Profil")+(String(modelData.id || "")===api.profileId ? " · Actuel" : "")+((modelData.protected===true || modelData.protected==="1") ? " · PIN" : "");icon:"user";highlighted:screen.selected===index;onClicked:{screen.selected=index;screen.activate();screen.forceActiveFocus();}}
         }
     }
-    Text {x:96;y:255;width:1080;horizontalAlignment:Text.AlignHCenter;visible:screen.pinMode;text:(screen.pin+"____").slice(0,4).replace(/[0-9]/g,"●").split("").join("    ");font.family:typeface.name;font.pixelSize:32;color:"#65ffe3"}
+    Text { textFormat: Text.PlainText;x:96;y:255;width:1080;horizontalAlignment:Text.AlignHCenter;visible:screen.pinMode;text:(screen.pin+"____").slice(0,4).replace(/[0-9]/g,"●").split("").join("    ");font.family:typeface.name;font.pixelSize:32;color:"#65ffe3"}
     Grid {x:442;y:326;columns:3;spacing:14;visible:screen.pinMode
         Repeater {model:screen.digits;delegate:TvButton {width:122;height:56;text:modelData;textSize:18;highlighted:index===screen.digit;onClicked:{screen.digit=index;screen.activate();screen.forceActiveFocus();}}}
     }
-    Text {x:98;y:664;text:"Flèches  Choisir     OK  Valider     Retour  Revenir";font.family:typeface.name;font.pixelSize:17;color:"#bdbdbd"}
+    Text { textFormat: Text.PlainText;x:98;y:664;text:"Flèches  Choisir     OK  Valider     Retour  Revenir";font.family:typeface.name;font.pixelSize:17;color:"#bdbdbd"}
 }
