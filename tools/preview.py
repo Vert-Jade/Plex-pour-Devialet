@@ -83,8 +83,9 @@ key(Qt.Key_Right); assert shell.property('zone') == 2
 assert shell.property('itemIndex') == 0
 key(Qt.Key_Return); assert shell.property('detailOpen')
 capture('fiche')
-key(Qt.Key_Down);key(Qt.Key_Return);assert shell.property('sheet') == 'synopsis'
-key(Qt.Key_Escape);assert shell.property('detailOpen')
+key(Qt.Key_Down);key(Qt.Key_Return);assert shell.property('sheet') == ''
+assert shell.property('detailOpen') and shell.property('detailZone') == 1
+assert not root.findChild(QObject, 'detailSummary').property('truncated')
 key(Qt.Key_Up)
 # Every visible action is reachable; skip restart when no offset exists.
 while shell.property('detailButton') != 3: key(Qt.Key_Right)

@@ -16,13 +16,25 @@ Item {
     readonly property var sections: [0,1].concat(cast.length ? [2] : []).concat(bonus.length ? [3] : [])
     readonly property int actionIndex: Math.max(0,actions.map(function(a){return a.id;}).indexOf(controller.detailButton))
     readonly property bool focused: controller.detailFocused
+    property real scrollTarget: 0
+    readonly property real summaryEnd: Math.max(0,summary.y+summary.height-canvas.height+24)
+    readonly property real summaryStart: Math.min(summary.y-24,summaryEnd)
     onActionsChanged: if (actions.length && actions.map(function(a){return a.id;}).indexOf(controller.detailButton)<0) controller.detailButton=actions[0].id
-    onVisibleChanged: if (visible) { canvas.contentY=0; }
+    onVisibleChanged: if (visible) scrollTarget=0
     function move(dx,dy) {
         if(dy) {
+            // Keep a logical scroll target so rapid remote repeats do not lose steps
+            // while the previous animation is still running.
+            if(controller.detailZone===1) {
+                if(dy>0 && scrollTarget<summaryEnd){scrollTarget=Math.min(summaryEnd,scrollTarget+220);return;}
+                if(dy<0 && scrollTarget>summaryStart){scrollTarget=Math.max(summaryStart,scrollTarget-220);return;}
+            }
             var index=sections.indexOf(controller.detailZone);
-            controller.detailZone=sections[Math.max(0,Math.min(sections.length-1,index+dy))];
+            var next=sections[Math.max(0,Math.min(sections.length-1,index+dy))];
+            if(next===controller.detailZone)return;
+            controller.detailZone=next;
             controller.detailSecondary=0;
+            if(controller.detailZone===1){scrollTarget=dy>0 ? summaryStart : summaryEnd;return;}
         }
         if(dx) {
             if(controller.detailZone===0) controller.detailButton=actions[Math.max(0,Math.min(actions.length-1,actionIndex+dx))].id;
@@ -31,12 +43,13 @@ Item {
         ensureVisible();
     }
     function ensureVisible() {
+        if(controller.detailZone===1)return;
         var bottom=controller.detailZone===3 ? extrasRow.y+extrasRow.height : controller.detailZone===2 ? castRow.y+castRow.height : 0;
-        canvas.contentY=Math.min(Math.max(0,canvas.contentHeight-canvas.height),Math.max(0,bottom-canvas.height+20));
+        scrollTarget=Math.min(Math.max(0,canvas.contentHeight-canvas.height),Math.max(0,bottom-canvas.height+20));
     }
     function activate() {
         if(api.busy)return;
-        if(controller.detailZone===1){controller.sheet="synopsis";return;}
+        if(controller.detailZone===1)return;
         if(controller.detailZone===2){
             if(media.cloudOnly || !cast[controller.detailSecondary] || !cast[controller.detailSecondary].id){api.notice="Filmographie indisponible pour cet interprète.";return;}
             controller.rememberFocus(true);controller.detailOpen=false;controller.zone=2;api.openActor(controller.detailSecondary);return;
@@ -60,13 +73,13 @@ Item {
     Image { anchors.fill:parent; source:"assets/cinema-shade.svg" }
     Flickable {
         id:canvas; objectName:"detailCanvas"; anchors.fill:parent; anchors.bottomMargin:64; clip:true; interactive:false
-        contentWidth:width; contentHeight:Math.max(height,extrasRow.visible ? extrasRow.y+extrasRow.height+25 : castRow.visible ? castRow.y+castRow.height+25 : 500)
+        contentWidth:width; contentHeight:Math.max(height,extrasRow.visible ? extrasRow.y+extrasRow.height+25 : castRow.visible ? castRow.y+castRow.height+25 : summary.y+summary.height+32)
+        contentY:page.scrollTarget
         Behavior on contentY { NumberAnimation { duration:150 } }
         Text { textFormat:Text.PlainText;x:94;y:35;width:1080;text:api.browseTitle;font.family:typeface.name;font.pixelSize:17;color:"#bdbdbd";elide:Text.ElideRight }
         Text { textFormat:Text.PlainText;x:94;y:83;width:1080;height:105;text:Plex.label(media);font.family:typeface.name;font.pixelSize:40;font.weight:Font.DemiBold;color:"#fafafa";wrapMode:Text.Wrap;maximumLineCount:2;elide:Text.ElideRight }
         Text { textFormat:Text.PlainText;x:96;y:192;width:1040;text:[media.year || "",Plex.duration(media.duration),Plex.age(media.contentRating),Plex.qualityBadge(media)].filter(function(v){return !!v;}).join("   ·   ");font.family:typeface.name;font.pixelSize:18;color:"#d0d0d0";elide:Text.ElideRight }
-        Text { textFormat:Text.PlainText;x:96;y:233;width:850;height:78;text:media.cloudOnly ? "Ce titre est dans votre Watchlist Plex, mais n’est pas disponible sur ce serveur." : media.summary || "Aucun résumé disponible.";font.family:typeface.name;font.pixelSize:19;color:"#c7c7c7";wrapMode:Text.Wrap;maximumLineCount:3;elide:Text.ElideRight;lineHeight:1.15 }
-        Row { x:94;y:330;spacing:18
+        Row { x:94;y:242;spacing:18
             Repeater { model:page.actions
                 Item { width:modelData.id===0 ? 240 : 54;height:54
                     TvButton { anchors.fill:parent; visible:modelData.id===0; text:modelData.title; icon:"play"; highlighted:page.focused && controller.detailZone===0 && controller.detailButton===modelData.id; onClicked:{controller.detailZone=0;controller.detailButton=modelData.id;page.activate();controller.takeFocus();} }
@@ -74,13 +87,13 @@ Item {
                 }
             }
         }
-        Text { textFormat:Text.PlainText;x:94;y:394;width:1080;text:page.focused && controller.detailZone===0 && controller.detailButton!==0 ? page.actions[page.actionIndex].title : "";font.family:typeface.name;font.pixelSize:16;color:"#65ffe3" }
-        Item { x:94;y:430;width:200;height:34
-            Rectangle { anchors.fill:parent;radius:6;color:page.focused && controller.detailZone===1 ? "#f3f3f3" : "transparent";GlowFrame {visible:page.focused && controller.detailZone===1;corner:6} }
-            Text { textFormat:Text.PlainText;anchors.centerIn:parent;text:"Lire le résumé complet";font.family:typeface.name;font.pixelSize:16;color:page.focused && controller.detailZone===1 ? "#101010" : "#bdbdbd" }
-            MouseArea {anchors.fill:parent;onClicked:{controller.detailZone=1;page.activate();controller.takeFocus();}}
+        Text { textFormat:Text.PlainText;x:94;y:306;width:1080;text:page.focused && controller.detailZone===0 && controller.detailButton!==0 ? page.actions[page.actionIndex].title : "";font.family:typeface.name;font.pixelSize:16;color:"#65ffe3" }
+        Text {
+            id:summary;objectName:"detailSummary";textFormat:Text.PlainText;x:96;y:352;width:930
+            text:(media.summary || "Aucun résumé disponible.")+(media.cloudOnly ? "\n\nCe titre est dans votre Watchlist Plex, mais n’est pas disponible sur ce serveur." : "")
+            font.family:typeface.name;font.pixelSize:19;color:"#d0d0d0";wrapMode:Text.Wrap;lineHeight:1.25
         }
-        Item { id:castRow; x:80;y:487;width:1120;height:190;visible:page.cast.length>0
+        Item { id:castRow; x:80;y:summary.y+summary.height+36;width:1120;height:190;visible:page.cast.length>0
             Text {textFormat:Text.PlainText;x:14;text:"Distribution";font.family:typeface.name;font.pixelSize:24;font.weight:Font.DemiBold;color:"#f7f7f7"}
             ListView { id:castList;objectName:"castList";y:35;width:parent.width;height:155;clip:true;interactive:false;orientation:ListView.Horizontal;model:page.cast;currentIndex:controller.detailZone===2 ? controller.detailSecondary : 0;highlightRangeMode:ListView.ApplyRange;preferredHighlightBegin:0;preferredHighlightEnd:width-160;highlightMoveDuration:120
                 delegate:Item { width:160;height:155
@@ -95,7 +108,7 @@ Item {
                 }
             }
         }
-        Item { id:extrasRow;x:80;y:castRow.visible ? 710 : 487;width:1120;height:240;visible:page.bonus.length>0
+        Item { id:extrasRow;x:80;y:castRow.visible ? castRow.y+castRow.height+32 : summary.y+summary.height+36;width:1120;height:240;visible:page.bonus.length>0
             Text {textFormat:Text.PlainText;x:14;text:"Bonus";font.family:typeface.name;font.pixelSize:24;font.weight:Font.DemiBold;color:"#f7f7f7"}
             ListView { objectName:"extrasList";y:35;width:parent.width;height:205;clip:true;interactive:false;orientation:ListView.Horizontal;model:page.bonus;currentIndex:controller.detailZone===3 ? controller.detailSecondary : 0;highlightRangeMode:ListView.ApplyRange;preferredHighlightBegin:0;preferredHighlightEnd:width-270;highlightMoveDuration:120
                 delegate:Item {width:270;height:205
@@ -112,5 +125,5 @@ Item {
         }
     }
     Rectangle {anchors.bottom:parent.bottom;width:parent.width;height:64;color:"#ed080808"}
-    RemoteHints { x:94;y:674;keySize:28;textSize:14;actions:[{key:"arrows",label:"Parcourir"},{key:"ok",label:"Choisir"},{key:"back",label:"Retour aux affiches"}] }
+    RemoteHints { x:94;y:674;keySize:28;textSize:14;actions:controller.detailZone===1 ? [{key:"vertical",label:"Faire défiler"},{key:"back",label:"Retour aux affiches"}] : [{key:"arrows",label:"Parcourir"},{key:"ok",label:"Choisir"},{key:"back",label:"Retour aux affiches"}] }
 }

@@ -171,7 +171,7 @@ FocusScope {
         });
         if (!captured) { settingsImage = ""; sheetIndex = 0; sheet = "settings"; }
     }
-    onSheetChanged: { if (sheet !== "settings") settingsImage = ""; if (sheet === "synopsis") synopsis.contentY = 0; }
+    onSheetChanged: if (sheet !== "settings") settingsImage = ""
     function searchKey() {
         if (keyboardIndex < 36) searchDraft += keyboardKeys[keyboardIndex];
         else if (keyboardIndex === 36) searchDraft += " ";
@@ -181,7 +181,7 @@ FocusScope {
     }
     function detailAction() { detailView.activate(); }
     function sheetAction() {
-        if (sheet === "synopsis" || sheet === "info" || sheet==="about") { sheet = ""; return; }
+        if (sheet === "info" || sheet==="about") { sheet = ""; return; }
         if (sheet === "search") { searchKey(); return; }
         if (sheet === "settings") { if (sheetIndex === Plex.settingsRows(api).length) sheet = "";else if(sheetIndex===14){sheet="";api.openLibraries();} else api.changePreference(sheetIndex,1); return; }
         if (sheet === "trailers") { sheet = ""; api.playTrailer(sheetIndex); return; }
@@ -226,7 +226,6 @@ FocusScope {
         }
         if (sheet === "info" || sheet==="about") return;
         if (sheet === "search") { if (dx) keyboardIndex = Math.max(0,Math.min(39,keyboardIndex+dx)); if (dy) keyboardIndex = Math.max(0,Math.min(39,keyboardIndex+dy*10)); return; }
-        if (sheet === "synopsis") { synopsis.contentY = Math.max(0, Math.min(Math.max(0,synopsis.contentHeight - synopsis.height), synopsis.contentY + dy * 84)); return; }
         if (sheet === "settings") { var count=Plex.settingsRows(api).length;sheetIndex = Math.max(0,Math.min(count,sheetIndex + dy)); if (dx && sheetIndex < count) api.changePreference(sheetIndex,dx); return; }
         if (sheet === "trailers") { sheetIndex = Math.max(0,Math.min(sheetOptions.length-1,sheetIndex + dy)); return; }
         if (sheet) { sheetIndex = Math.max(0, Math.min(accountActions.length-1, sheetIndex + dy)); confirmLogout = false; return; }
@@ -426,8 +425,8 @@ FocusScope {
     Rectangle {
         anchors.fill: parent; color: "#da000000"; visible: !!shell.sheet && shell.sheet !== "search" && shell.sheet !== "settings"
         Rectangle {
-            x: shell.sheet === "synopsis" ? 180 : 320; y: 86; width: shell.sheet === "synopsis" ? 920 : 640; height: 548; radius: 14; color: "#303030"; border.color: "#505050"
-            Text { textFormat: Text.PlainText; x: 36; y: 28; width: parent.width - 72; text: shell.sheet === "synopsis" ? Plex.label(api.detail) : shell.sheet === "info" ? "Informations du média" : shell.sheet === "trailers" ? "Bandes-annonces" : shell.sheet==="about" ? "À propos" : "Compte"; font.family: typeface.name; font.pixelSize: 28; color: "#f3f3f3"; elide: Text.ElideRight }
+            x: 320; y: 86; width: 640; height: 548; radius: 14; color: "#303030"; border.color: "#505050"
+            Text { textFormat: Text.PlainText; x: 36; y: 28; width: parent.width - 72; text: shell.sheet === "info" ? "Informations du média" : shell.sheet === "trailers" ? "Bandes-annonces" : shell.sheet==="about" ? "À propos" : "Compte"; font.family: typeface.name; font.pixelSize: 28; color: "#f3f3f3"; elide: Text.ElideRight }
             ListView { x: 32; y: 106; width: 576; height: 350; spacing: 12; visible: shell.sheet === "trailers"; clip: true; interactive: false; model: shell.sheetOptions; currentIndex: shell.sheetIndex; highlightRangeMode: ListView.ApplyRange
                 delegate: TvButton { width: 576; height: 58; text: modelData.title; highlighted: !api.error && shell.sheetIndex === index; onClicked: { shell.sheetIndex = index; shell.sheetAction(); shell.takeFocus(); } }
             }
@@ -436,12 +435,9 @@ FocusScope {
                 model: shell.accountActions
                 delegate: TvButton { width: 576; height: 58; text: modelData.title; highlighted: !api.error && shell.sheetIndex === index; onClicked: { shell.sheetIndex = index; shell.sheetAction(); shell.takeFocus(); } }
             }
-            Flickable { id: synopsis; objectName: "synopsis"; x: 36; y: 92; width: parent.width - 72; height: 354; clip: true; visible: shell.sheet === "synopsis"; interactive: false; contentHeight: synopsisText.height
-                Text { textFormat: Text.PlainText; id: synopsisText; width: synopsis.width; text: api.detail.cloudOnly ? "Ce titre fait partie de votre liste de suivis Plex. Il n’est pas disponible dans les bibliothèques de ce serveur." : api.detail.summary || "Aucun résumé disponible."; wrapMode: Text.Wrap; font.family: typeface.name; font.pixelSize: 24; lineHeight: 1.4; color: "#dadada" }
-            }
             Text { textFormat: Text.PlainText; x: 36; y: 122; width: parent.width - 72; visible: shell.sheet === "info"; text: Plex.technicalInfo(api.detail); wrapMode: Text.Wrap; font.family: typeface.name; font.pixelSize: 22; lineHeight: 1.6; color: "#ddd" }
             Text { textFormat: Text.PlainText;x:36;y:112;width:parent.width-72;visible:shell.sheet==="about";text:AppInfo.name+" · "+AppInfo.version+"\n\nClient indépendant en développement, sans affiliation à Plex, Free ou Devialet. Aucun contenu fourni.\n\nUn compte Plex et un serveur accessible sont nécessaires. La connexion est enregistrée uniquement si « Rester connecté » est activé. La déconnexion efface les jetons de ce Player.\n\nAucune publicité ni mesure d’audience ajoutée par ce client. Les échanges passent par Plex et votre serveur.";wrapMode:Text.Wrap;font.family:typeface.name;font.pixelSize:19;color:"#dddddd";lineHeight:1.2}
-            RemoteHints { x:36;y:494;keySize:30;textSize:15;groupSpacing:26;actions:shell.sheet === "info" || shell.sheet === "about" ? [{key:"back",label:"Fermer"}] : shell.sheet === "synopsis" ? [{key:"vertical",label:"Lire la suite"},{key:"back",label:"Fermer"}] : [{key:"vertical",label:"Choisir"},{key:"ok",label:"Valider"},{key:"back",label:"Fermer"}] }
+            RemoteHints { x:36;y:494;keySize:30;textSize:15;groupSpacing:26;actions:shell.sheet === "info" || shell.sheet === "about" ? [{key:"back",label:"Fermer"}] : [{key:"vertical",label:"Choisir"},{key:"ok",label:"Valider"},{key:"back",label:"Fermer"}] }
         }
     }
     SettingsPanel {

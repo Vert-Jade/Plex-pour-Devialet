@@ -9,9 +9,11 @@ Etat local au 15 octobre 2026 ; version en développement.
 - Catalogue Devialet : recherche, collections, métadonnées, acteur,
   profils Home XML, épisode suivant, playlists, dossiers et 12 tris :
   22 contrôles réussis. Notes absentes et durées de versions prises en compte.
-- Interface sur Devialet, données fictives : 16 contrôles réussis,
+- Interface sur Devialet, données fictives : 23 contrôles réussis,
   dont accueil ouvert/rétracté, texte non masqué, un focus, bobine,
   acteurs/bonus, retour de filmographie, classification et erreur superposée.
+  Résumé intégral dans la fiche, textes longs, dernière ligne atteignable,
+  retour aux actions, Watchlist et absence de rangées : vérifiés PC et Player.
 - Haut/Bas en lecture native : masquent/réaffichent les commandes sans pause.
   Menu garde l'accès aux pistes. Légende réelle rendue sur PC sans débordement.
 - Lecture Devialet : direct, reprise, intro injectée, panne simulée,

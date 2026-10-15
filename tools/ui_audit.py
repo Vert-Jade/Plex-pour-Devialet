@@ -117,7 +117,8 @@ def run(view, root, service, shell, items, capture, key):
     one_focus('Trailer reel');capture('fiche-actions')
     previous = service.property('trailerCount');key(Qt.Key_Return)
     assert service.property('trailerCount') == previous+1
-    key(Qt.Key_Down);one_focus('Full synopsis')
+    key(Qt.Key_Down)
+    assert shell.property('detailZone') == 1 and not glows()
     key(Qt.Key_Down);one_focus('Cast')
     for _ in range(13):key(Qt.Key_Right)
     one_focus('Last cast member');capture('fiche-distribution')
@@ -132,6 +133,44 @@ def run(view, root, service, shell, items, capture, key):
     one_focus('Last bonus');capture('fiche-bonus')
     key(Qt.Key_Return);assert service.property('lastExtra') == 9
     key(Qt.Key_Up);key(Qt.Key_Up);key(Qt.Key_Up);one_focus('Back to detail actions')
+    # Full summaries stay inline; a long text must be read before lower rows,
+    # including titles with no cast/bonus and cloud-only Watchlist entries.
+    summary = root.findChild(QObject, 'detailSummary')
+    canvas = root.findChild(QObject, 'detailCanvas')
+    long_summary = ('Un voyage inattendu mène les voyageurs à travers des paysages grandioses. ' * 18 + '\n\n') * 3 + 'Dernière phrase du résumé.'
+    for with_rows in [True, False]:
+        extended = dict(detail, summary=long_summary)
+        if not with_rows:
+            extended.update(Role=[], Extras={}, cloudOnly=True)
+        service.setProperty('detail', extended);QTest.qWait(200)
+        assert summary.property('text').startswith(long_summary) and not summary.property('truncated')
+        assert summary.height() > canvas.height()
+        key(Qt.Key_Down);key(Qt.Key_Return)
+        assert shell.property('detailZone') == 1 and not shell.property('sheet') and not glows()
+        first_y = canvas.property('contentY')
+        key(Qt.Key_Down)
+        assert shell.property('detailZone') == 1 and canvas.property('contentY') > first_y
+        for _ in range(40):
+            QTest.qWait(180)  # Measure after the 150 ms scrolling animation.
+            bottom = summary.mapToItem(shell, QPointF(0, summary.height())).y()
+            if bottom <= canvas.height()-23:break
+            key(Qt.Key_Down)
+            assert shell.property('detailZone') == 1, 'Jumped over unread summary'
+        assert bottom <= canvas.height()-23
+        capture('fiche-resume-complet' if with_rows else 'fiche-resume-watchlist')
+        end_y = canvas.property('contentY')
+        key(Qt.Key_Down)
+        if with_rows:
+            assert shell.property('detailZone') == 2
+            one_focus('Cast after long summary');key(Qt.Key_Up)
+        else:
+            assert shell.property('detailZone') == 1 and abs(canvas.property('contentY')-end_y) < 1
+        for _ in range(40):
+            if shell.property('detailZone') == 0:break
+            key(Qt.Key_Up)
+        one_focus('Return above long summary')
+        assert shell.property('detailZone') == 0 and canvas.property('contentY') == 0
+    service.setProperty('detail', detail);QTest.qWait(200)
     service.setProperty('error', 'Le fichier est momentanément inaccessible.')
     one_focus('Error over detail');key(Qt.Key_Escape);key(Qt.Key_Escape)
     # No unavailable action can become selected at a pagination boundary.
