@@ -12,11 +12,31 @@ Etat local au 15 octobre 2026 ; version en développement.
   la source et réessai explicite avec image/son : réussi en parcours direct et conversion.
 - Après-lecture : fin contrôlée, compte à rebours, annulation puis
   ouverture de l’épisode suivant avec image/son : réussis.
+- Lecture continue : 600 secondes en direct et 600 secondes en conversion,
+  sans blocage ni repli non demandé ; image/son confirmés sur la TV.
+- VO avec sous-titres français complets : incrustation confirmée par PMS,
+  présence, lisibilité et synchronisation confirmées par le spectateur.
+- Pause de 35 secondes, changement réel de piste audio, saut de générique
+  injecté conservant la suite et fin de flux native : réussis.
+- Après les scénarios : pistes du média et de l’épisode suivant restaurées,
+  historique inchangé et encodeurs de test libérés, vérifiés par relecture PMS.
+- Aides de télécommande communes et numérotation S02E02 : rendu/navigation
+  PC vérifiés ; application complète chargée et lue sur le Devialet.
+- 15 échantillons convertis sur Devialet : H.264, HEVC, AV1, MJPEG, MPEG-4 ;
+  AAC, E-AC3, AC3, DTS, MP3, WMA v2 ; SRT, ASS, PGS, texte MP4.
+  Extraits courts avec pause/reprise et pistes audio/vidéo actives ;
+  incrustation confirmée pour les quatre types de sous-titres échantillonnés.
 
 Une variante de nettoyage par composants QML temporaires a entraîné des
 interruptions de diagnostic sur le Player pendant cette passe. Elle a été
 écartée après comparaison avec des transports indépendants ; la version
-retenue borne leur durée et leur nombre. Une recette longue reste nécessaire.
+retenue borne leur durée et leur nombre. La nouvelle passe prolongée ne les
+a pas reproduites. Une recette sur des films entiers reste nécessaire.
+
+Deux assertions de position du premier essai direct prolongé étaient trop
+strictes pour l’arrondi du flux et le décalage de notification du lecteur.
+Le banc a été corrigé à partir des mesures ; les parcours complets suivants
+réussissent. Les traces initiales restent conservées en privé.
 
 Les outils de lecture neutralisent les écritures de progression et restaurent
 les pistes modifiées. Ce ne sont pas des essais de film entier ni de réseau distant.

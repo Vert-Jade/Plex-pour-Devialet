@@ -71,6 +71,7 @@ Les dépendances de repères et d’extras sont décrites par Plex : [génériqu
 - Statut vu/non vu : mise à jour cohérente dans l’accueil, la recherche et la Watchlist après confirmation serveur.
 - Lecture : échec final libérant la source et la session, arrêt des encodeurs borné, déplacement direct borné même en pause, commandes Lecture/Pause idempotentes.
 - Identité publique centralisée, logo jade conservé après « pour », sélecteur de vues sans glyphe manquant et véritable icône Dossier.
+- Aides de télécommande réunies dans un composant commun : touches dessinées, actions alignées, séparateurs et libellés contextuels. Le lecteur, les réglages, les menus, la recherche et les profils utilisent cette présentation. Numéros d’épisode normalisés en `S02E02`, y compris les cartes de reprise.
 
 Les responsabilités et invariants du code sont décrits dans [ARCHITECTURE.md](ARCHITECTURE.md).
 
@@ -83,7 +84,11 @@ Les responsabilités et invariants du code sont décrits dans [ARCHITECTURE.md](
 5. **Lecture sur Devialet réel** : image/son en direct, reprise, saut d’intro contrôlé, blocage simulé puis conversion, changement audio en pause, déplacement, deuxième repli et arrêt des sessions. L’application complète a aussi affiché l’après-lecture et lancé l’épisode suivant avec image/son après une fin injectée par le test. Ce dernier essai ne remplace pas la lecture naturelle de deux épisodes complets. Les marqueurs image/son du backend ne prouvent pas la qualité acoustique d’un mix surround.
 Le scénario de lecture a été renforcé avec des commandes Lecture/Pause répétées, un échec final injecté et une action Réessayer. Une variante de nettoyage créant/détruisant des composants QML temporaires a interrompu plusieurs essais matériels. Elle a été écartée après un essai comparatif ; la méthode retenue conserve des transports indépendants, avec expiration et nombre borné. Cette comparaison ne constitue pas une analyse interne du firmware Free.
 
-6. **Essais de codecs antérieurs dans le même projet** : échantillons HEVC, AV1, DTS, ASS et PGS ; leurs traces privées existent. Pas de matrice exhaustive ni nouvelle revalidation de chaque codec à chaque changement d’interface.
+La nouvelle passe du 15 octobre a observé **600 secondes continues en direct et 600 secondes en conversion** sans blocage ni repli non demandé. Le spectateur a confirmé la synchronisation image/son dans les deux modes, puis l’affichage correct des sous-titres français lors d’un scénario VO/ST français explicite. L’application complète a aussi passé une pause de 35 secondes, un changement réel de piste audio, un saut de générique injecté laissant la scène suivante jouable et une fin de flux native après déplacement vers les dernières secondes. Cela ne remplace pas la lecture d’un film entier.
+
+Le premier scénario prolongé direct a signalé deux erreurs d’assertion après ses dix minutes continues : départ converti arrondi à la seconde et notification de position native décalée par rapport au compteur du lecteur. Les mesures détaillées ont permis de corriger le banc ; les scénarios complets suivants passent. Les journaux initiaux restent conservés dans les données privées. Les contrôles finaux relisent PMS pour vérifier les pistes restaurées du média initial et de l’épisode suivant, l’historique inchangé et l’absence de nouvelles sessions de conversion de test restantes.
+
+6. **Échantillons de codecs rejoués sur Devialet le 15 octobre** : 15 conversions réussies avec progression, pause/reprise et pistes audio/vidéo actives. Vidéo : H.264, HEVC, AV1, MJPEG, MPEG-4 ; audio : AAC, E-AC3, AC3, DTS, MP3, WMA v2 ; sous-titres : SRT, ASS, PGS, texte MP4 (`mov_text`). La décision d’incrustation a été vérifiée pour les quatre échantillons de sous-titres. Chaque extrait dure environ six secondes après démarrage, avec une pause supplémentaire : ce contrôle ne valide ni toutes les variantes de ces formats ni la synchronisation visuelle de chaque piste. Le scénario VO/ST français distinct a reçu une confirmation visuelle du spectateur. Les traces et médias de référence restent privés.
 
 ## Avant une candidature Store stable
 

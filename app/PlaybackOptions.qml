@@ -63,5 +63,7 @@ FocusScope {
             }
         }
     }
-    Text { textFormat: Text.PlainText; x:112;y:626;width:1056;text:(panel.convertible ? "La lecture reprend au même endroit après un changement." : "Ce bonus utilise la lecture directe ; les réglages de conversion ne sont pas disponibles.")+"\nFlèches  Naviguer     OK  Choisir     Retour  Reprendre la vidéo";font.family:typeface.name;font.pixelSize:17;lineHeight:1.3;color:"#bbbbbb" }
+    Rectangle { x:112;y:618;width:1056;height:1;color:"#383838" }
+    Text { textFormat: Text.PlainText; x:112;y:628;width:1056;text:panel.convertible ? "La lecture reprend au même endroit après un changement." : "Ce bonus utilise la lecture directe ; les réglages de conversion ne sont pas disponibles.";font.family:typeface.name;font.pixelSize:15;color:"#a9a9a9";elide:Text.ElideRight }
+    RemoteHints { x:112;y:663;actions:[{key:"vertical",label:"Naviguer"},{key:"ok",label:"Choisir"},{key:"back",label:panel.submenu ? "Retour" : "Reprendre la vidéo"}] }
 }

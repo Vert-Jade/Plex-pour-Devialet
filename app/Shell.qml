@@ -429,7 +429,7 @@ FocusScope {
             TvButton { width: 140; height: 58; text: "Retour"; highlighted: shell.detailZone === 0 && shell.detailButton === 4 && !shell.sheet; onClicked: { shell.detailOpen = false; shell.takeFocus(); } }
         }
         Row {x:94;y:624;spacing:12;Repeater {model:shell.detailActions;delegate:TvButton {width:196;height:46;text:modelData.title;textSize:17;highlighted:shell.detailZone===1 && shell.detailSecondary===index && !shell.sheet;onClicked:{shell.detailZone=1;shell.detailSecondary=index;shell.detailAction();shell.takeFocus();}}}}
-        Text { textFormat: Text.PlainText; x: 806; y: 682; width: 380; text: "Retour  Revenir aux affiches"; font.family: typeface.name; font.pixelSize: 15; color: "#9d9d9d"; horizontalAlignment: Text.AlignRight }
+        RemoteHints { anchors.right:parent.right;anchors.rightMargin:94;y:678;keySize:28;textSize:14;actions:[{key:"back",label:"Revenir aux affiches"}] }
     }
 
     Rectangle { anchors.fill: parent; color: "#6b000000"; visible: !!shell.dropdown; MouseArea { anchors.fill: parent; onClicked: { shell.closeDropdown(); shell.takeFocus(); } } }
@@ -458,7 +458,7 @@ FocusScope {
             }
             Text { textFormat: Text.PlainText; x: 36; y: 122; width: parent.width - 72; visible: shell.sheet === "info"; text: Plex.technicalInfo(api.detail); wrapMode: Text.Wrap; font.family: typeface.name; font.pixelSize: 22; lineHeight: 1.6; color: "#ddd" }
             Text { textFormat: Text.PlainText;x:36;y:112;width:parent.width-72;visible:shell.sheet==="about";text:AppInfo.name+" · "+AppInfo.version+"\n\nClient indépendant en développement, sans affiliation à Plex, Free ou Devialet. Aucun contenu fourni.\n\nUn compte Plex et un serveur accessible sont nécessaires. La connexion est enregistrée uniquement si « Rester connecté » est activé. La déconnexion efface les jetons de ce Player.\n\nAucune publicité ni mesure d’audience ajoutée par ce client. Les échanges passent par Plex et votre serveur.";wrapMode:Text.Wrap;font.family:typeface.name;font.pixelSize:19;color:"#dddddd";lineHeight:1.2}
-            Text { textFormat: Text.PlainText; x: 36; y: 494; text: shell.sheet === "info" ? "Retour  Fermer" : shell.sheet === "synopsis" ? "Flèches  Lire la suite     ·     Retour  Fermer" : "Flèches  Choisir     ·     OK  Valider     ·     Retour  Fermer"; font.family: typeface.name; font.pixelSize: 16; color: "#aeaeae" }
+            RemoteHints { x:36;y:494;keySize:30;textSize:15;groupSpacing:26;actions:shell.sheet === "info" || shell.sheet === "about" ? [{key:"back",label:"Fermer"}] : shell.sheet === "synopsis" ? [{key:"vertical",label:"Lire la suite"},{key:"back",label:"Fermer"}] : [{key:"vertical",label:"Choisir"},{key:"ok",label:"Valider"},{key:"back",label:"Fermer"}] }
         }
     }
     SettingsPanel {
@@ -483,7 +483,7 @@ FocusScope {
                 }
             }
         }
-        Text { textFormat: Text.PlainText; x: 120; y: 602; text: "Flèches  Choisir une lettre     OK  Valider     Retour  Fermer"; font.family: typeface.name; font.pixelSize: 18; color: "#aaa" }
+        RemoteHints { x:120;y:602;actions:[{key:"arrows",label:"Choisir une lettre"},{key:"ok",label:"Valider"},{key:"back",label:"Fermer"}] }
     }
     Rectangle {
         anchors.fill: parent; color: "#ed000000"; visible: !!api.error

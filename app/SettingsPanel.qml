@@ -57,16 +57,5 @@ Rectangle {
         Text { textFormat: Text.PlainText; anchors.centerIn: parent; text: "Terminé"; font.family: typeface.name; font.pixelSize: 18; font.weight: Font.DemiBold; color: "#f7f7f7" }
         MouseArea { anchors.fill: parent; onClicked: panel.chosen(panel.preferences.length) }
     }
-    Row { x: 207; y: 651; spacing: 24
-        Repeater { model: [{label:"Naviguer",icon:"arrows",size:124},{label:"Choisir / Modifier",icon:"ok",size:176},{label:"Retour",icon:"left",size:110}]
-            Item { width: modelData.size; height: 30
-                Rectangle { width: 29; height: 29; radius: 15; color: "transparent"; border.color: "#9d9d9d"
-                    TvIcon { anchors.centerIn: parent; width: 19; height: 19; kind: modelData.icon; visible: modelData.icon !== "ok"; ink: "#cfcfcf" }
-                    Text { textFormat: Text.PlainText; anchors.centerIn: parent; text: "OK"; visible: modelData.icon === "ok"; font.family: typeface.name; font.pixelSize: 11; color: "#cfcfcf" }
-                }
-                Text { textFormat: Text.PlainText; x: 43; anchors.verticalCenter: parent.verticalCenter; text: modelData.label; font.family: typeface.name; font.pixelSize: 14; color: "#c4c4c4" }
-                Rectangle { x: parent.width; y: 2; width: 1; height: 26; color: "#454545"; visible: index < 2 }
-            }
-        }
-    }
+    RemoteHints { x:207;y:651;actions:[{key:"arrows",label:"Naviguer"},{key:"ok",label:"Modifier"},{key:"back",label:"Retour"}] }
 }

@@ -53,5 +53,5 @@ FocusScope {
     Grid {x:442;y:326;columns:3;spacing:14;visible:screen.pinMode
         Repeater {model:screen.digits;delegate:TvButton {width:122;height:56;text:modelData;textSize:18;highlighted:index===screen.digit;onClicked:{screen.digit=index;screen.activate();screen.forceActiveFocus();}}}
     }
-    Text { textFormat: Text.PlainText;x:98;y:664;text:"Flèches  Choisir     OK  Valider     Retour  Revenir";font.family:typeface.name;font.pixelSize:17;color:"#bdbdbd"}
+    RemoteHints { x:98;y:664;actions:[{key:"arrows",label:"Choisir"},{key:"ok",label:"Valider"},{key:"back",label:"Retour"}] }
 }

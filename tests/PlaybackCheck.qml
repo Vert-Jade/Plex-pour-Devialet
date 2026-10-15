@@ -16,6 +16,8 @@ Application {
     property int failures:0
     property bool quick:false
     property bool requireBurn:false
+    property bool expectAudio:false
+    property string sampleLabel:""
     function handleUrl(url){return false;}
     QtObject { id:api
         property string serverUrl:""
@@ -41,14 +43,14 @@ Application {
     }
     VideoOutput { anchors.fill:parent;source:player }
     Rectangle { x:30;y:30;width:620;height:60;color:"#dd000000"
-        Text { anchors.centerIn:parent;color:"#59d6a6";font.pixelSize:22;text:"Vérification de lecture · étape "+(stage+1)+" / 5" }
+        Text { anchors.centerIn:parent;color:"#59d6a6";font.pixelSize:22;textFormat:Text.PlainText;text:"Vérification "+sampleLabel+" · étape "+(stage+1)+" / "+(quick ? 1 : 5) }
     }
     Timer { id:tick;interval:1000;repeat:true
         onTriggered:{
             ticks++;
             if(ticks===2 && stage===0){player.pause();pauseCheck.start();tick.stop();return;}
             if(ticks>=6){
-                var okay=player.position-startPosition>1500 && player.hasVideo;
+                var okay=player.position-startPosition>1500 && player.hasVideo && (!expectAudio || player.hasAudio);
                 console.log((okay ? "QA_PASS " : "QA_FAIL progress ")+stage+" position="+player.position+" base="+base+" duration="+player.duration+" video="+player.hasVideo+" audio="+player.hasAudio);
                 if(!okay)root.failures++;root.next();
             }
@@ -73,7 +75,7 @@ Application {
     Component.onCompleted:{
         var xhr=new XMLHttpRequest();
         xhr.onreadystatechange=function(){if(xhr.readyState!==XMLHttpRequest.DONE)return;if(xhr.status!==200){console.log("QA_FAIL config");console.log("QA_DONE failures=1");return;}
-            var config=JSON.parse(xhr.responseText);api.serverUrl=config.serverUrl;api.serverToken=config.token;api.libraries=config.libraries;item=config.media;quick=!!config.quick;requireBurn=!!config.requireBurn;if(quick)api.playbackMode=1;session.begin("",item,60000,config.versionIndex || 0);
+            var config=JSON.parse(xhr.responseText);api.serverUrl=config.serverUrl;api.serverToken=config.token;api.libraries=config.libraries;item=config.media;quick=!!config.quick;sampleLabel=config.sampleLabel || "lecture";requireBurn=!!config.requireBurn;expectAudio=Playback.streams(item,config.versionIndex || 0,2).length>0;if(quick)api.playbackMode=1;session.begin("",item,60000,config.versionIndex || 0);
         };
         xhr.open("GET",Qt.resolvedUrl("qa-config.json"));xhr.send();
     }

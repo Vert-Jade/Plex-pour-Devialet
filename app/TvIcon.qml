@@ -17,6 +17,10 @@ Canvas {
         if (kind === "down") { c.moveTo(6,9); c.lineTo(12,15); c.lineTo(18,9); }
         else if (kind === "left") { c.moveTo(15,5); c.lineTo(8,12); c.lineTo(15,19); }
         else if (kind === "right") { c.moveTo(9,5); c.lineTo(16,12); c.lineTo(9,19); }
+        else if (kind === "back") { c.moveTo(9,5);c.lineTo(4,10);c.lineTo(9,15);c.moveTo(4,10);c.lineTo(14,10);c.bezierCurveTo(21,10,21,19,14,19); }
+        else if (kind === "menu") { for(var my=6;my<=18;my+=6){c.moveTo(5,my);c.lineTo(19,my);} }
+        else if (kind === "horizontal") { c.moveTo(8,6);c.lineTo(3,12);c.lineTo(8,18);c.moveTo(16,6);c.lineTo(21,12);c.lineTo(16,18); }
+        else if (kind === "vertical") { c.moveTo(6,8);c.lineTo(12,3);c.lineTo(18,8);c.moveTo(6,16);c.lineTo(12,21);c.lineTo(18,16); }
         else if (kind === "check") { c.moveTo(5,12); c.lineTo(10,17); c.lineTo(19,7); }
         else if (kind === "plus") { c.moveTo(12,4);c.lineTo(12,20);c.moveTo(4,12);c.lineTo(20,12); }
         else if (kind === "folder") { c.moveTo(2,5);c.lineTo(9,5);c.lineTo(11,8);c.lineTo(22,8);c.lineTo(22,21);c.lineTo(2,21);c.closePath(); }

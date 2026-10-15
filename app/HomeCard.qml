@@ -18,7 +18,7 @@ Item {
         }
         GlowFrame { visible: card.highlighted; corner: 6 }
     }
-    Text { textFormat: Text.PlainText; x: 19; y: 226; width: 158; text: card.media.type === "episode" ? (card.media.parentIndex !== undefined ? "S"+card.media.parentIndex : "") + (card.media.index !== undefined ? "E"+card.media.index+" · " : "") + (card.media.title || "") : card.media.title || ""; font.family: typeface.name; font.pixelSize: 12; color: card.highlighted ? "#ffffff" : "#c5c5c5"; elide: Text.ElideRight }
+    Text { textFormat: Text.PlainText; x: 19; y: 226; width: 158; text: card.media.type === "episode" ? (Plex.episodeCode(card.media) ? Plex.episodeCode(card.media)+" · " : "") + (card.media.title || "") : card.media.title || ""; font.family: typeface.name; font.pixelSize: 12; color: card.highlighted ? "#ffffff" : "#c5c5c5"; elide: Text.ElideRight }
     Text { textFormat: Text.PlainText; x: 19; y: 244; width: 158; text: card.continuing && card.media.duration ? Math.ceil(Math.max(0,card.media.duration-(card.media.viewOffset || 0))/60000)+" min restantes" : card.media.year || ""; font.family: typeface.name; font.pixelSize: 11; color: "#a2a2a2"; elide: Text.ElideRight }
     MouseArea { anchors.fill: parent; onClicked: card.clicked() }
 }

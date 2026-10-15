@@ -200,13 +200,13 @@ Application {
                 }
             }
             Rectangle {
-                x: 0; y: 492; width: 1280; height: 228; radius: 0; color: "#ed202020"; visible: root.controlsVisible
+                x: 0; y: 492; width: 1280; height: 228; radius: 0; color: "#ed080808"; visible: root.controlsVisible
                 Text { textFormat: Text.PlainText; font.family: typeface.name; x: 68; y: 22; width: 1144; text: Plex.label(root.playingItem); elide: Text.ElideRight; color: "#f5f5f5"; font.pixelSize: 28; font.weight: Font.DemiBold }
                 Text { textFormat: Text.PlainText; font.family: typeface.name; x: 68; y: 66; width: 1144; text: root.playbackMessage || (root.pausedIntent ? "En pause · " : "")+stream.status; color: "#cccccc"; font.pixelSize: 18; wrapMode: Text.Wrap }
                 Text { textFormat: Text.PlainText; font.family:typeface.name;x:68;y:99;text:root.pausedIntent ? "" : "Fin vers "+Qt.formatTime(new Date(Date.now()+Math.max(0,root.videoDuration-root.lastPosition)),"hh:mm");color:"#aaaaaa";font.pixelSize:14 }
                 Rectangle { x: 68; y: 122; width: 1144; height: 5; radius: 2; color: "#555555"; Rectangle { height: parent.height; width: parent.width * Math.min(1, root.lastPosition / Math.max(1, root.videoDuration)); color: "#59d6a6" } }
-                Text { textFormat: Text.PlainText; font.family: typeface.name; x: 68; y: 150; text: "OK  Pause     Flèches  Avancer / Reculer     Menu  Audio, sous-titres et qualité"; color: "#cccccc"; font.pixelSize: 15 }
-                Text { textFormat: Text.PlainText; font.family: typeface.name; anchors.right: parent.right; anchors.rightMargin: 68; y: 150; text: Plex.clock(root.lastPosition) + " / " + Plex.clock(root.videoDuration); color: "#59d6a6"; font.pixelSize: 20 }
+                RemoteHints { x:68;y:154;actions:[{key:"ok",label:root.pausedIntent ? "Reprendre" : "Pause"},{key:"horizontal",label:"−10 s / +10 s"},{key:"menu",label:"Audio et sous-titres"},{key:"back",label:"Quitter"}] }
+                Text { textFormat: Text.PlainText; font.family: typeface.name; anchors.right: parent.right; anchors.rightMargin: 68; y: 96; text: Plex.clock(root.lastPosition) + " / " + Plex.clock(root.videoDuration); color: "#59d6a6"; font.pixelSize: 18 }
             }
         }
         PlaybackOptions {
@@ -225,7 +225,7 @@ Application {
                 TvButton {width:320;height:60;text:root.nextSeconds>0 ? "Lire dans "+root.nextSeconds+" secondes" : "Lire maintenant";available:!!root.nextMedia.ratingKey;highlighted:root.nextChoice===0;onClicked:root.startNext()}
                 TvButton {width:240;height:60;text:"Annuler";highlighted:root.nextChoice===1;onClicked:root.cancelNext()}
             }
-            Text { textFormat: Text.PlainText;x:96;y:600;text:"Retour  Annuler l’enchaînement";font.family:typeface.name;font.pixelSize:18;color:"#bbbbbb"}
+            RemoteHints { x:96;y:600;actions:[{key:"horizontal",label:"Choisir"},{key:"ok",label:"Valider"},{key:"back",label:"Annuler l’enchaînement"}] }
         }
     }
 }

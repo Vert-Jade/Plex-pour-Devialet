@@ -8,7 +8,7 @@ Item {
     property int selectedIndex: -1
     property bool loading: false
     signal chosen(int index)
-    width: 330; height: Math.min(470, Math.max(144, options.length * 54 + 94))
+    width: 330; height: Math.min(486, Math.max(160, options.length * 54 + 110))
     FontLoader { id: typeface; source: "fonts/NotoSans-Regular.ttf" }
     Rectangle { x: -7; y: -3; width: parent.width + 14; height: parent.height + 17; radius: 14; color: "#33000000" }
     Rectangle { anchors.fill: parent; radius: 5; color: "#303030"; border.color: "#505050" }
@@ -19,7 +19,7 @@ Item {
         GlowFrame { corner: 5 }
     }
     ListView {
-        id: list; x: 10; y: 50; width: parent.width - 20; height: parent.height - 88; clip: true
+        id: list; x: 10; y: 50; width: parent.width - 20; height: parent.height - 104; clip: true
         model: menu.options; currentIndex: menu.focusedIndex; highlightMoveDuration: 100
         highlightRangeMode: ListView.ApplyRange; preferredHighlightBegin: 0; preferredHighlightEnd: height - 54
         delegate: Rectangle {
@@ -34,5 +34,5 @@ Item {
         Rectangle { width: 2; height: Math.max(18, parent.height * list.height / Math.max(1, list.contentHeight)); y: Math.max(0, Math.min(parent.height - height, list.contentY / Math.max(1, list.contentHeight - list.height) * (parent.height - height))); color: "#dcdcdc" }
     }
     Text { textFormat: Text.PlainText; visible: menu.loading; anchors.centerIn: parent; text: "Chargement des genres…"; font.family: typeface.name; font.pixelSize: 18; color: "#dedede" }
-    Text { textFormat: Text.PlainText; x: 23; anchors.bottom: parent.bottom; anchors.bottomMargin: 13; text: "OK  Valider     Retour  Annuler"; font.family: typeface.name; font.pixelSize: 13; color: "#b4b4b4" }
+    RemoteHints { x:23;anchors.bottom:parent.bottom;anchors.bottomMargin:13;keySize:26;textSize:13;groupSpacing:24;labelSpacing:9;actions:[{key:"ok",label:"Valider"},{key:"back",label:"Annuler"}] }
 }

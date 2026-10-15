@@ -40,5 +40,5 @@ FocusScope {
         }
     }
     Text { textFormat: Text.PlainText;x:98;y:612;width:1080;text:"Signaler une bibliothèque adulte permet de filtrer ses résultats, même sans classification Plex.\nLe filtre de recherche se règle dans Paramètres. Les droits d’accès se gèrent dans Plex.";font.family:typeface.name;font.pixelSize:16;color:"#bdbdbd";lineHeight:1.3}
-    Text { textFormat: Text.PlainText;x:98;y:682;text:"Flèches  Naviguer     OK  Modifier     Retour  Revenir";font.family:typeface.name;font.pixelSize:16;color:"#bdbdbd"}
+    RemoteHints { x:98;y:664;actions:[{key:"arrows",label:"Naviguer"},{key:"ok",label:"Modifier"},{key:"back",label:"Retour"}] }
 }

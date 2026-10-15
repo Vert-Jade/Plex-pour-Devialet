@@ -150,12 +150,20 @@ function clock(ms) {
     var secs = Math.max(0, Math.floor((Number(ms) || 0) / 1000));
     return Math.floor(secs / 60) + ":" + (secs % 60 < 10 ? "0" : "") + secs % 60;
 }
+function episodeCode(item) {
+    function digits(value) {
+        var number=Number(value);
+        if(value===undefined || value===null || value==="" || !isFinite(number) || number<0 || Math.floor(number)!==number)return "";
+        return number<10 ? "0"+number : String(number);
+    }
+    var season=digits(item.parentIndex),episode=digits(item.index);
+    return (season ? "S"+season : "")+(episode ? "E"+episode : "");
+}
 function label(item) {
     if (item.type === "episode") {
         var parts = [];
         if (item.grandparentTitle) parts.push(item.grandparentTitle);
-        var number = item.parentIndex !== undefined ? "S" + item.parentIndex : "";
-        if (item.index !== undefined) number += "E" + item.index;
+        var number = episodeCode(item);
         if (number) parts.push(number);
         if (item.title) parts.push(item.title);
         return parts.join(" · ") || "Épisode";

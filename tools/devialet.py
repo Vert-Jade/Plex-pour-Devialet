@@ -17,6 +17,7 @@ APP_FILES = {'/manifest.json', '/main.qml', '/qmldir', '/Shell.qml', '/TvButton.
 APP_FILES.add('/assets/plex-logo.svg')
 APP_FILES.add('/AppConfig.js')
 APP_FILES.update({'/AppInfo.js', '/Brand.qml'})
+APP_FILES.add('/RemoteHints.qml')
 APP_FILES.add('/ProfileScreen.qml')
 APP_FILES.add('/LibraryScreen.qml')
 APP_FILES.add('/assets/app-icon.png')

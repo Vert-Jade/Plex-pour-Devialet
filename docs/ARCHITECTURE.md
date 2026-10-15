@@ -14,6 +14,7 @@ Le client s’exécute sur le Player et communique directement avec Plex et le P
 | `app/Plex.js` | Métadonnées, chemins, filtres, marqueurs et préférences |
 | `app/Shell.qml` | Navigation, focus, fiches et panneaux |
 | `app/AppInfo.js`, `app/Brand.qml` | Identité publique, version et présentation du nom avec le logo existant |
+| `app/RemoteHints.qml`, `app/TvIcon.qml` | Touches de télécommande et légendes communes, sans ajouter de commandes au focus |
 | `tools/devialet.py` | Détection, lancement développeur et liste des ressources publiques |
 | `tools/package_freestore.py` | Paquet reproductible et rapport de contrôle ; aucun dépôt automatique |
 
@@ -36,6 +37,6 @@ Les composants visuels reçoivent `api` ou `session`. Ils ne lisent pas la confi
 
 La CI exécute Node/Python, les deux bancs QML et la construction du paquet. Les tests Node exécutent les fonctions extraites des composants ; ils ne remplacent pas l’ancien moteur Qt du Player. Les captures publiques utilisent exclusivement les données fictives de `tests/preview/`.
 
-Les contrôles matériels ont des identifiants d’application distincts. Ils ne chargent pas la connexion mémorisée de l’application normale. Le contrôle de lecture neutralise la progression et restaure les pistes à sa sortie normale. Une fermeture forcée de l’outil peut interrompre ce nettoyage ; privilégier la fin du scénario. Traces et échantillons restent dans `.local/`.
+Les contrôles matériels ont des identifiants d’application distincts. Ils ne chargent pas la connexion mémorisée de l’application normale. Le contrôle de lecture neutralise la progression et sauvegarde les choix de pistes du média initial et de l’épisode suivant avant de lancer le scénario. À sa sortie, il restaure ces choix et relit PMS pour contrôler les pistes, l’historique et l’arrêt des encodeurs. Une fermeture forcée de l’outil peut interrompre ce nettoyage ; privilégier la fin du scénario. Traces et échantillons restent dans `.local/`.
 
 Voir les exigences ouvertes dans [AUDIT.md](AUDIT.md), les limites réseau/stockage dans [SECURITY.md](../SECURITY.md), et les commandes dans [README.md](../README.md).

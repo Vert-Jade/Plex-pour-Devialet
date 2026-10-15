@@ -22,9 +22,17 @@ Ces outils sont destinés au développeur qui possède le Player et le PMS de te
 ```powershell
 python -X utf8 tools/check-catalog.py
 python -X utf8 tools/check-playback.py --integration --direct
+python -X utf8 tools/check-playback.py --integration --direct --soak-seconds 600
+python -X utf8 tools/check-playback.py --integration --soak-seconds 600
+python -X utf8 tools/check-playback.py --integration --audio-language eng --subtitle-language fra --soak-seconds 60
+python -X utf8 tools/check-playback.py --sample video:hevc
 ```
 
-Les essais remplacent temporairement l’application visible sur la TV et servent des accès en mémoire uniquement à ce Player. Les deux contrôles utilisent des identifiants d’application distincts, sans modifier la connexion ni les préférences de l’application normale. Le contrôle de lecture emploie l’application complète avec les écritures de progression neutralisées et restaure les pistes d’origine après l’essai. Relancer ensuite `Lancer-Cinema.cmd`. Ne pas lancer ces outils sur le serveur d’un tiers ni pendant une lecture en cours.
+Les essais remplacent temporairement l’application visible sur la TV et servent des accès en mémoire uniquement à ce Player. Les deux contrôles utilisent des identifiants d’application distincts, sans modifier la connexion ni les préférences de l’application normale. Le contrôle de lecture emploie l’application complète avec les écritures de progression neutralisées et restaure les pistes d’origine après l’essai, y compris celles de l’épisode suivant. Il relit ensuite les métadonnées et les sessions PMS pour vérifier ces restaurations, l’historique inchangé et l’arrêt des encodeurs. Relancer ensuite `Lancer-Cinema.cmd`. Ne pas lancer ces outils sur le serveur d’un tiers ni pendant une lecture en cours.
+
+`--soak-seconds` ajoute de 0 à 1800 secondes de lecture continue avant les changements de pistes et les pannes simulées. Le scénario contrôle la progression toutes les dix secondes, sans repli ni perte des pistes audio/vidéo ; il vérifie ensuite une pause de 35 secondes, un saut de générique contrôlé conservant la suite et une fin de flux réelle après déplacement vers les dernières secondes. Ce n’est pas la lecture d’un épisode entier. Le média d’intégration doit avoir un épisode suivant et être suffisamment long. Les rapports prolongés incluent `-soak`, la durée et les éventuels codes de langue dans leur nom. `--sample` vérifie un seul échantillon converti, avec pause/reprise, audio/vidéo et décision d’incrustation pour un échantillon de sous-titres ; une ancienne référence de piste est refusée.
+
+Pour un contrôle visuel précis, les options `--audio-language` et `--subtitle-language` sélectionnent des pistes disponibles par leur code Plex, uniquement dans le scénario de conversion. Les sous-titres choisis ainsi sont complets, pas limités aux passages forcés. Le test refuse une langue absente, vérifie la décision d’incrustation, puis choisit une autre piste audio pendant la pause. L’écoute et la lecture des sous-titres sur la TV restent nécessaires pour confirmer leur langue et leur synchronisation.
 
 Un test simulé ne valide ni une lecture physique, ni un accès distant, ni une installation Store. Indiquer précisément le niveau de preuve dans chaque contribution. Les cas de recette manquants sont dans `docs/AUDIT.md`.
 
