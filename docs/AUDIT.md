@@ -23,7 +23,7 @@ Dans la colonne P2F, « annoncé » signifie uniquement documenté par son auteu
 | Personnalisation des sources | Templates annoncés | Sources épinglées | Épingles par profil/serveur ; interface unique, pas de thèmes de disposition |
 | Accueil | ND | Reprises et ajouts | Reprises puis ajouts des bibliothèques épinglées ; pas de hubs éditoriaux personnalisables |
 | Films, séries, saisons | Annoncé | Bibliothèques | Implémenté et catalogue réel consulté |
-| Filtres et tris | ND | Bibliothèque filtrable | Statut, genre et sept tris ; pas de combinaisons avancées enregistrées |
+| Filtres et tris | ND | Bibliothèque filtrable | Statut, genre et six critères dans les deux sens (12 ordres) ; pas de combinaisons avancées enregistrées |
 | Recherche | ND | Recherche de contenus | Titres dans les bibliothèques autorisées, pagination complète ; pas de recherche vocale/universelle de personnes |
 | Recherche adulte | ND | Dépend des profils/services | Option de résultats explicites, bibliothèques signalables ; dépend des métadonnées, pas un contrôle parental |
 | Watchlist | ND | Ma liste | API cloud, résolution locale, ajout/retrait ; écritures couvertes par simulations |
@@ -74,6 +74,28 @@ Les dépendances de repères et d’extras sont décrites par Plex : [génériqu
 - Aides de télécommande réunies dans un composant commun : touches dessinées, actions alignées, séparateurs et libellés contextuels. Le lecteur, les réglages, les menus, la recherche et les profils utilisent cette présentation. Numéros d’épisode normalisés en `S02E02`, y compris les cartes de reprise.
 
 Les responsabilités et invariants du code sont décrits dans [ARCHITECTURE.md](ARCHITECTURE.md).
+
+## Passe de navigation 0.5.2
+
+Le rendu précédent maintenait trois lumières simultanées sur l’accueil (destination, lecture et affiche), conservait une barre de 166 px sur cette page contre 64 px ailleurs et masquait le début du message d’épinglage sous le panneau de 280 px. Le décalage des bibliothèques gardait également leur ancienne largeur et coupait le bord droit. Ces causes ont été corrigées ensemble : focus séparé de la destination, dimensions communes et contenu borné. Les panneaux et erreurs n’entretiennent plus le focus de l’écran derrière eux.
+
+La fiche utilise désormais des icônes d’actions, une bobine pour les bandes-annonces, et des rangées de distribution et de bonus. Les actions textuelles redondantes ont été retirées. Le retour de filmographie restaure la fiche et l’interprète sélectionné. L’organisation suit les fonctions décrites par Plex pour la [fiche et sa barre d’actions](https://support.plex.tv/articles/202934933-cinema-trailers-extras-plex-web-app/) ; elle ne constitue pas une certification d’identité avec toutes les versions de Plex TV.
+
+Les épingles présentent une seule ligne par bibliothèque. Les options distinguent « Public averti » et « 18+ · Contenus explicites », sans modifier les droits Plex. La pagination utilise des icônes Première page/Précédente/Suivante et évite les commandes impossibles. Les douze ordres de tri utilisent la même définition côté interface et requête. Les réponses tardives ne déplacent plus le choix du menu ; Retour peut annuler une fiche en cours de chargement, et un catalogue lent n’empêche plus de choisir une autre source.
+
+| Parcours vérifié | Preuve de cette passe |
+|---|---|
+| Accueil rempli/vide, barre ouverte/fermée, message d’épinglage | QML réel PC : focus visible unique et bornes ; 720p/1080p, échelles 90/95/100 %. Même scénario sur le Player avec données fictives |
+| Filtres et tris | Sélection/annulation au clavier ; 12 ordres appliqués avec statut/genre et pagination dans les tests JS ; réponses réelles PMS depuis le Player |
+| Fiche, bobine, distribution et bonus | Navigation horizontale/verticale, dernier acteur/bonus visible, bon index envoyé, retour filmographie ; PC et Player avec données fictives |
+| Pagination et listes longues | Première/dernière page, saut des actions impossibles, 24 bibliothèques dans la barre, retour aux affiches : QML PC |
+| Panne pendant les paramètres/fiche | Une seule lueur active, réessai et retour : PC ; erreur sur paramètres aussi sur Player |
+| Connexion, profils/PIN, recherche, Watchlist, collections, dossiers, compte, réglages | Parcours PC existants rejoués ; contrats de service et annulations vérifiés par tests JS. Échange PIN réel toujours à valider |
+| Lecture Haut/Bas, Menu et récupération | Application native : masquer/réafficher sans pause, direct puis repli, pistes, déplacements, pause prolongée, génériques contrôlés, fin et nettoyage PMS |
+
+Les premières assertions de tri ont rencontré des pages sans notes et des films à versions multiples. Les réponses PMS ont confirmé un tri sur la durée minimale/maximale selon le sens ; le banc a été ajusté pour ces cas et pour parcourir les pages sans notes. Aucune modification des médias ou des réglages globaux du serveur n’a été faite. Le premier chargement du nouveau banc UI natif nécessitait aussi une entrée `qmldir` pour sa scène fictive servie en HTTP ; la ressource a été ajoutée uniquement au banc.
+
+Cette passe renforce la couverture des parcours et des erreurs observées. Elle ne prouve pas chaque combinaison de métadonnées, de réseau, de matériel ou d’action utilisateur ; les cas encore ouverts ci-dessous restent à réaliser.
 
 ## Niveaux de preuve
 

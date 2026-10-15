@@ -2,6 +2,7 @@ import QtQuick 2.4
 
 Canvas {
     id: glow
+    objectName: "focusGlow"
     property real corner: 8
     property real strength: 1
     property color ink: "#65ffe3"

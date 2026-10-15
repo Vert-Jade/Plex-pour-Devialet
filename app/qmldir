@@ -18,3 +18,5 @@ ProfileScreen 1.0 ProfileScreen.qml
 LibraryScreen 1.0 LibraryScreen.qml
 Brand 1.0 Brand.qml
 RemoteHints 1.0 RemoteHints.qml
+IconButton 1.0 IconButton.qml
+DetailView 1.0 DetailView.qml

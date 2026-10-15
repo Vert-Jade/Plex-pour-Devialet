@@ -37,7 +37,7 @@ Rectangle {
             Rectangle {
                 x: 13; y: 12; width: 972; height: 74; radius: 10
                 color: panel.selectedIndex === index ? "#f3f3f3" : "#e0181818"; border.color: panel.selectedIndex === index ? "#b4d5d0" : "#454545"
-                GlowFrame { visible: panel.selectedIndex === index; corner: 10 }
+                GlowFrame { visible: !api.error && panel.selectedIndex === index; corner: 10 }
                 Rectangle { x: 21; y: 10; width: 54; height: 54; radius: 27; color: panel.selectedIndex === index ? "#c2eee7" : "#303030"
                     TvIcon { anchors.centerIn: parent; width: 27; height: 27; kind: modelData.icon; ink: panel.selectedIndex === index ? "#07594d" : "#f5f5f5" }
                 }
@@ -53,7 +53,7 @@ Rectangle {
     Rectangle { x: 207; y: 568; width: 972; height: 1; color: "#454545" }
     Text { textFormat: Text.PlainText; x: 207; y: 585; width: 720; text: panel.selectedIndex < 2 ? "Les sauts nécessitent les repères détectés par votre serveur Plex.\nLe Plex Pass peut être requis. Sans repère, la lecture continue normalement." : panel.selectedIndex === 4 || panel.selectedIndex === 5 ? "La musique s’arrête automatiquement au démarrage d’une vidéo.\nLes thèmes sont ceux disponibles dans votre bibliothèque Plex." : panel.selectedIndex === 12 ? "Désactiver efface les accès enregistrés, sans interrompre cette session.\nUne nouvelle association sera nécessaire après fermeture de l’application." : "Vos réglages sont enregistrés automatiquement sur ce Devialet."; font.family: typeface.name; font.pixelSize: 14; lineHeight: 1.15; color: "#c4c4c4" }
     Rectangle { x: 955; y: 586; width: 226; height: 44; radius: 22; color: "#e0181818"; border.color: "#818181"; border.width: 1.2
-        GlowFrame { visible: panel.selectedIndex === panel.preferences.length; corner: 22 }
+        GlowFrame { visible: !api.error && panel.selectedIndex === panel.preferences.length; corner: 22 }
         Text { textFormat: Text.PlainText; anchors.centerIn: parent; text: "Terminé"; font.family: typeface.name; font.pixelSize: 18; font.weight: Font.DemiBold; color: "#f7f7f7" }
         MouseArea { anchors.fill: parent; onClicked: panel.chosen(panel.preferences.length) }
     }

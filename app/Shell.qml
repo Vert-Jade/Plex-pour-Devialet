@@ -31,6 +31,7 @@ FocusScope {
     property var focusHistory: []
     property int restoreIndex: -1
     property int restoreHub: 0
+    property var restoreDetail: null
     property int hubIndex: 0
     property int heroButton: 0
     property bool homePlayPending: false
@@ -50,15 +51,17 @@ FocusScope {
     readonly property int columns: 6
     readonly property var current: displayedItems.length > itemIndex ? displayedItems[itemIndex] : ({})
     readonly property var availableTrailers: Plex.trailers(api.detail)
-    readonly property var bonusOptions: Plex.extras(api.detail).map(function(e,i){return {title:e.title,value:i,extraType:e.extraType};}).filter(function(e){return Number(e.extraType)!==1;})
-    readonly property var detailActions: [{title:"Lire le résumé",kind:"synopsis"}].concat(availableTrailers.length ? [{title:"Bande-annonce",kind:"trailers"}] : []).concat(bonusOptions.length ? [{title:"Bonus",kind:"extras"}] : []).concat((api.detail.Role || []).length ? [{title:"Distribution",kind:"actors"}] : []).concat(!api.detail.cloudOnly && ["movie","show","season","episode"].indexOf(api.detail.type)>=0 ? [{title:"Ma liste",kind:"watchlist"}] : [])
     readonly property var accountActions: [{title:"Changer de profil",kind:"profiles"}].concat(api.servers.length>1 ? [{title:"Changer de serveur",kind:"servers"}] : []).concat([{title:"À propos et confidentialité",kind:"about"},{title:confirmLogout ? "Confirmer la déconnexion" : "Déconnecter ce Devialet",kind:"logout"},{title:"Fermer",kind:"close"}])
-    readonly property var sheetOptions: sheet==="actors" ? (api.detail.Role || []).map(function(a,i){return {title:a.tag+(a.role ? " · "+a.role : ""),value:i,thumb:a.thumb};}) : sheet==="extras" ? bonusOptions : availableTrailers
+    readonly property var sheetOptions: availableTrailers
     readonly property string themeSource: visible && isLibrary && !sheet && !api.error && !api.busy ? api.themeUrl(detailOpen ? api.detail : zone === 2 || zone === 5 ? hero : ({})) : ""
     readonly property bool isLibrary: api.state === "library"
     readonly property bool navOpen: isLibrary && zone === 0 && !detailOpen && !sheet && !api.error
+    readonly property real sidebarWidth: sidebar.width
+    readonly property bool contentFocused: isLibrary && !detailOpen && !sheet && !dropdown && !api.error
+    readonly property bool detailFocused: isLibrary && detailOpen && !sheet && !dropdown && !api.error
+    readonly property var pageActions: (api.page>0 ? [2,0] : []).concat((api.page+1)*api.pageSize<api.total ? [1] : [])
     readonly property var filterOptions: [{title:"Tous"},{title:"Non vus"},{title:"En cours"},{title:"Vus"}]
-    readonly property var sortOptions: [{title:"Titre : A à Z"},{title:"Date d’ajout"},{title:"Année"},{title:"Titre : Z à A"},{title:"Date de sortie"},{title:"Note"},{title:"Durée"}]
+    readonly property var sortOptions: Plex.librarySorts()
     readonly property var viewOptions: [{title:"Bibliothèque",value:1},{title:"Collections",value:2},{title:"Listes de lecture",value:3},{title:"Dossiers",value:5}]
     readonly property int viewOption: Math.max(0,viewOptions.map(function(v){return v.value;}).indexOf(api.view))
     readonly property string countLabel: api.total + (api.view===5 ? " élément" : " titre") + (api.total>1 ? "s" : "")
@@ -75,7 +78,10 @@ FocusScope {
     Timer { id: navReset; interval: 10; onTriggered: if (shell.navIndex <= 1) nav.positionViewAtBeginning() }
     function selectedGenre() { for (var i=0; i<api.genres.length; i++) if (api.genres[i].title === api.genreTitle) return i; return 0; }
     function openNav() { if (zone !== 0) returnZone = zone; closeDropdown(); zone = 0; }
-    function closeNav() { zone = returnZone === 2 && !displayedItems.length && !(recommended && api.hubs.length) ? 4 : returnZone; }
+    function closeNav() {
+        zone = returnZone;
+        if (zone === 2 && !displayedItems.length && !(recommended && api.hubs.length)) zone = api.home || api.watchlist || api.globalSearch || api.view !== 1 || api.browsePath ? 4 : 1;
+    }
     function closeDropdown() { dropdown = ""; genrePending = false; }
     function openFilter(index) {
         if (api.browsePath) { goParent(); return; }
@@ -98,7 +104,7 @@ FocusScope {
     }
     function goParent() {
         if (!api.history.length) return;
-        var stack = focusHistory.slice(); var previous = stack.length ? stack.pop() : {item:0,hub:0}; restoreIndex = previous.item; restoreHub = previous.hub; focusHistory = stack;
+        var stack = focusHistory.slice(); var previous = stack.length ? stack.pop() : {item:0,hub:0}; restoreIndex = previous.item; restoreHub = previous.hub; restoreDetail = previous.detail ? previous : null; focusHistory = stack;
         zone = 2; api.back();
     }
     function back() {
@@ -109,6 +115,7 @@ FocusScope {
             else {api.error="";api.state="auth";}
             return;
         }
+        if (!sheet && !dropdown && api.cancelDetails()) { homePlayPending=false;takeFocus();return; }
         if (dropdown) closeDropdown();
         else if (sheet) { sheet = ""; confirmLogout = false; }
         else if (detailOpen) { detailOpen = false; detailZone = 0; }
@@ -122,6 +129,7 @@ FocusScope {
         tabIndex = index; zone = 4;dropdown="view";dropdownIndex=viewOption;
     }
     function selectNav() {
+        restoreIndex=-1;restoreDetail=null;
         if (navIndex === navigation.length - 1) openSettings();
         else if (navIndex === 2) { sheet = "search"; searchDraft = api.searchText; keyboardIndex = 0; }
         else if (navIndex === 0) { zone = 2; itemIndex = 0; hubIndex = 0; focusHistory = []; api.showWatchlist(); }
@@ -135,7 +143,11 @@ FocusScope {
             detailOpen = false; zone = 2; itemIndex = 0; hubIndex = 0; preferredColumn = 0; focusHistory = []; api.selectLibrary(index);
         }
     }
-    function rememberFocus() { var stack = focusHistory.slice(); stack.push({item:itemIndex,hub:hubIndex}); focusHistory = stack; }
+    function rememberFocus(preserveDetail) {
+        var stack=focusHistory.slice(),entry={item:itemIndex,hub:hubIndex};
+        if(preserveDetail){entry.detail=api.detail;entry.detailButton=detailButton;entry.detailZone=detailZone;entry.detailSecondary=detailSecondary;}
+        stack.push(entry);focusHistory=stack;
+    }
     function openCurrent() {
         if (!current || !current.type) return;
         if (["collection","playlist","category","folder"].indexOf(current.type) >= 0) rememberFocus();
@@ -143,7 +155,7 @@ FocusScope {
     }
     function homeAction(index) {
         if (!current || !current.type || api.busy) return;
-        heroButton = index;
+        heroButton = index; zone = 5;
         if (index === 1) { api.toggleWatchlist(hero); return; }
         homePlayPending = index === 0;
         api.openMedia(current);
@@ -159,7 +171,7 @@ FocusScope {
         });
         if (!captured) { settingsImage = ""; sheetIndex = 0; sheet = "settings"; }
     }
-    onSheetChanged: if (sheet !== "settings") settingsImage = ""
+    onSheetChanged: { if (sheet !== "settings") settingsImage = ""; if (sheet === "synopsis") synopsis.contentY = 0; }
     function searchKey() {
         if (keyboardIndex < 36) searchDraft += keyboardKeys[keyboardIndex];
         else if (keyboardIndex === 36) searchDraft += " ";
@@ -167,31 +179,12 @@ FocusScope {
         else if (keyboardIndex === 38) searchDraft = "";
         else if (searchDraft.trim()) { sheet = ""; zone = 2; hubIndex = 0; focusHistory = []; api.search(searchDraft); }
     }
-    function detailAction() {
-        if (detailZone === 1) {
-            var action=detailActions[detailSecondary];if(!action)return;
-            if(action.kind==="watchlist"){api.toggleWatchlist(api.detail);return;}
-            if (action.kind === "trailers") {
-                if (availableTrailers.length === 1) api.playTrailer(0);
-                else { sheet = "trailers"; sheetIndex = 0; }
-            } else { sheet = action.kind;sheetIndex=0;synopsis.contentY = 0; }
-            return;
-        }
-        if (detailButton === 4) { detailOpen = false; return; }
-        if (detailButton === 3) { sheet = "info"; return; }
-        if (detailButton === 2) { api.markWatched(); return; }
-        if (api.detail.type === "show" || api.detail.type === "season") {
-            rememberFocus();
-            detailOpen = false; zone = 2; api.openChildren();
-        } else api.play(detailButton === 0);
-    }
+    function detailAction() { detailView.activate(); }
     function sheetAction() {
         if (sheet === "synopsis" || sheet === "info" || sheet==="about") { sheet = ""; return; }
         if (sheet === "search") { searchKey(); return; }
         if (sheet === "settings") { if (sheetIndex === Plex.settingsRows(api).length) sheet = "";else if(sheetIndex===14){sheet="";api.openLibraries();} else api.changePreference(sheetIndex,1); return; }
         if (sheet === "trailers") { sheet = ""; api.playTrailer(sheetIndex); return; }
-        if(sheet==="extras"){var extra=sheetOptions[sheetIndex];sheet="";if(extra)api.playExtra(extra.value);return;}
-        if(sheet==="actors"){var actor=sheetOptions[sheetIndex];sheet="";if(actor){rememberFocus();detailOpen=false;zone=2;api.openActor(actor.value);}return;}
         var choice=accountActions[sheetIndex];if(!choice)return;
         if(choice.kind==="profiles"){sheet="";detailOpen=false;api.loadProfiles();return;}
         if(choice.kind==="servers"){sheet="";detailOpen=false;api.showServers();return;}
@@ -210,7 +203,7 @@ FocusScope {
         if (api.error) { if (errorChoice === 0) api.retry(); else back(); return; }
         if (dropdown) { applyFilter(dropdownIndex); return; }
         if (sheet) { sheetAction(); return; }
-        if (api.busy) return;
+        if (api.busy && !(isLibrary && zone===0 && !detailOpen)) return;
         if (api.state === "auth") {if(authChoice===1)api.setRememberAccount(!api.rememberAccount);else api.connectAccount();}
         else if (api.state === "servers") api.chooseServer(serverIndex);
         else if (detailOpen) detailAction();
@@ -219,8 +212,8 @@ FocusScope {
             else if (zone === 1) openFilter(filterButton);
             else if (zone === 2) openCurrent();
             else if (zone === 5) homeAction(heroButton);
-            else if (zone === 4) { if (api.browsePath) goParent(); else if (api.home) openNav(); else selectTab(tabIndex); }
-            else changePage(pageButton === 0 ? -1 : 1);
+            else if (zone === 4) { if (api.browsePath) goParent(); else if (api.home) api.openLibraries(); else if (api.watchlist || api.globalSearch) openNav(); else selectTab(tabIndex); }
+            else changePage(pageButton === 2 ? -api.page : pageButton === 0 ? -1 : 1);
         }
     }
     function move(dx, dy) {
@@ -235,19 +228,10 @@ FocusScope {
         if (sheet === "search") { if (dx) keyboardIndex = Math.max(0,Math.min(39,keyboardIndex+dx)); if (dy) keyboardIndex = Math.max(0,Math.min(39,keyboardIndex+dy*10)); return; }
         if (sheet === "synopsis") { synopsis.contentY = Math.max(0, Math.min(Math.max(0,synopsis.contentHeight - synopsis.height), synopsis.contentY + dy * 84)); return; }
         if (sheet === "settings") { var count=Plex.settingsRows(api).length;sheetIndex = Math.max(0,Math.min(count,sheetIndex + dy)); if (dx && sheetIndex < count) api.changePreference(sheetIndex,dx); return; }
-        if (["trailers","extras","actors"].indexOf(sheet)>=0) { sheetIndex = Math.max(0,Math.min(sheetOptions.length-1,sheetIndex + dy)); return; }
+        if (sheet === "trailers") { sheetIndex = Math.max(0,Math.min(sheetOptions.length-1,sheetIndex + dy)); return; }
         if (sheet) { sheetIndex = Math.max(0, Math.min(accountActions.length-1, sheetIndex + dy)); confirmLogout = false; return; }
         if (api.state === "servers") { serverIndex = Math.max(0, Math.min(api.servers.length - 1, serverIndex + dy)); return; }
-        if (detailOpen) {
-            if (dy) detailZone = dy > 0 ? 1 : 0;
-            if (dx && detailZone === 1) detailSecondary = Math.max(0,Math.min(detailActions.length-1,detailSecondary + dx));
-            if (dx && detailZone === 0) {
-                detailButton = Math.max(0, Math.min(4, detailButton + dx));
-                if (api.detail.cloudOnly) { detailButton = Math.max(3,detailButton); return; }
-                if (detailButton === 1 && (!api.detail.viewOffset || api.detail.type === "show" || api.detail.type === "season")) detailButton = dx > 0 ? 2 : 0;
-            }
-            return;
-        }
+        if (detailOpen) { detailView.move(dx,dy); return; }
         if (!isLibrary) return;
         if (zone === 5) {
             if (dx < 0 && heroButton === 0) openNav();
@@ -270,7 +254,7 @@ FocusScope {
         } else if (zone === 2) {
             if (recommended) {
                 if (dx < 0 && itemIndex === 0) { openNav(); return; }
-                if (dx) itemIndex = Math.max(0, Math.min(displayedItems.length-1,itemIndex+dx));
+                if (dx && displayedItems.length) itemIndex = Math.max(0, Math.min(displayedItems.length-1,itemIndex+dx));
                 if (dy < 0 && hubIndex === 0) { if (displayedItems.length) { zone = 5; heroButton = 0; } else openNav(); return; }
                 if (dy && hubIndex+dy >= 0 && hubIndex+dy < api.hubs.length) { hubIndex += dy; itemIndex = Math.max(0, Math.min(itemIndex,displayedItems.length-1)); }
                 return;
@@ -285,7 +269,9 @@ FocusScope {
                 else if (api.page > 0 || api.total > api.pageSize) { zone = 3; pageButton = (api.page + 1) * api.pageSize < api.total ? 1 : 0; }
             }
         } else {
-            if (dx < 0 && pageButton === 0) openNav(); else pageButton = Math.max(0, Math.min(1, pageButton + dx));
+            var pageIndex=pageActions.indexOf(pageButton);
+            if (dx < 0 && pageIndex <= 0) openNav();
+            else if (dx && pageActions.length) pageButton=pageActions[Math.max(0,Math.min(pageActions.length-1,pageIndex+dx))];
             if (dy < 0) zone = api.items.length ? 2 : 1;
         }
     }
@@ -304,16 +290,27 @@ FocusScope {
     Timer { id: previewDelay; interval: 450; onTriggered: if (shell.isLibrary && shell.visible && !shell.detailOpen) api.previewMedia(shell.current) }
     Connections {
         target: api
+        onProfileIdChanged: { shell.focusHistory=[];shell.restoreIndex=-1;shell.restoreDetail=null; }
+        onServerUrlChanged: { shell.focusHistory=[];shell.restoreIndex=-1;shell.restoreDetail=null; }
         onLibraryLoaded: {
             shell.hubIndex = shell.restoreIndex >= 0 ? shell.restoreHub : 0;
             shell.tabIndex = 0;
             shell.itemIndex = shell.restoreIndex >= 0 ? Math.min(shell.restoreIndex, Math.max(0,shell.displayedItems.length - 1)) : 0;
             shell.restoreIndex = -1; shell.preferredColumn = shell.itemIndex % shell.columns;
             grid.positionViewAtIndex(shell.itemIndex, GridView.Beginning);
-            if (!shell.displayedItems.length && shell.zone === 2 && !(api.home && api.hubs.length)) shell.zone = api.watchlist || api.globalSearch || api.home ? 0 : api.view === 1 ? 1 : 4;
-            shell.navIndex=api.globalSearch ? 2 : api.watchlist ? 0 : 1;
-            for (var i=0; i<api.pinnedLibraries.length; i++) if (api.pinnedLibraries[i].key === api.section.key && !api.globalSearch && !api.watchlist && !api.home) shell.navIndex=i+3;
-            shell.hero = shell.current; shell.takeFocus();
+            if (!shell.displayedItems.length && shell.zone === 2 && !(api.home && api.hubs.length)) shell.zone = api.watchlist || api.globalSearch ? 0 : api.home ? 4 : api.view === 1 && !api.browsePath ? 1 : 4;
+            // A late catalogue reply must not move the user's sidebar selection or steal a modal's focus.
+            if (shell.zone !== 0) {
+                shell.navIndex=api.globalSearch ? 2 : api.watchlist ? 0 : 1;
+                for (var i=0; i<api.pinnedLibraries.length; i++) if (api.pinnedLibraries[i].key === api.section.key && !api.globalSearch && !api.watchlist && !api.home) shell.navIndex=i+3;
+            }
+            shell.hero = shell.current;
+            if(shell.restoreDetail){
+                var previous=shell.restoreDetail;shell.restoreDetail=null;api.detail=previous.detail;
+                shell.detailButton=previous.detailButton;shell.detailZone=previous.detailZone;shell.detailSecondary=previous.detailSecondary;shell.detailOpen=true;
+                detailView.ensureVisible();
+            }
+            if (api.state === "library") shell.takeFocus();
         }
         onDetailsLoaded: {
             if (shell.homePlayPending) {
@@ -327,74 +324,78 @@ FocusScope {
         onPreviewLoaded: if (media.ratingKey === shell.current.ratingKey) shell.hero = media
         onPlaybackRequested: shell.startPlayback(url, media, offset)
         onErrorChanged: { if (api.error) { shell.homePlayPending = false; shell.errorChoice = 0; shell.closeDropdown(); } }
-        onStateChanged: {if(api.state!=="library"){shell.detailOpen=false;shell.sheet="";shell.hero=({});shell.settingsCapture++;shell.closeDropdown();}stateFocus.restart();}
+        onStateChanged: {if(api.state!=="library"){shell.detailOpen=false;shell.sheet="";shell.hero=({});shell.restoreIndex=-1;shell.restoreDetail=null;shell.settingsCapture++;shell.closeDropdown();}stateFocus.restart();}
     }
 
     Rectangle { anchors.fill: parent; color: "#080808"; visible: isLibrary || api.state === "servers" }
     HomeView { id: homeView; anchors.fill: parent; api: shell.api; controller: shell; visible: isLibrary && shell.recommended && !shell.detailOpen
     }
     Item {
-        id: content; x: shell.navOpen ? 216 : 0; width: 1280; height: 720; visible: isLibrary && !shell.detailOpen && !shell.recommended
-        Behavior on x { NumberAnimation { duration: 130 } }
+        id: content; objectName: "libraryContent"; x: shell.sidebarWidth - 64; width: shell.width - x; height: 720; visible: isLibrary && !shell.detailOpen && !shell.recommended
         Row { x: 88; y: 22; spacing: 8; visible: !api.home && !api.watchlist && !api.globalSearch && !api.browsePath
             Repeater { model: shell.tabs
                 Item { width: tabText.implicitWidth + 64; height: 48
-                    Rectangle { anchors.fill: parent; radius: 4; color: shell.zone === 4 && shell.tabIndex === index ? "white" : "transparent" }
-                    Text { textFormat: Text.PlainText; id: tabText; x:15; anchors.verticalCenter:parent.verticalCenter; text: shell.viewOptions[shell.viewOption].title; font.family: typeface.name; font.pixelSize: 19; color: shell.zone === 4 && shell.tabIndex === index ? "#202020" : "white" }
+                    Rectangle { anchors.fill: parent; radius: 4; color: shell.contentFocused && shell.zone === 4 && shell.tabIndex === index ? "white" : "transparent" }
+                    Text { textFormat: Text.PlainText; id: tabText; x:15; anchors.verticalCenter:parent.verticalCenter; text: shell.viewOptions[shell.viewOption].title; font.family: typeface.name; font.pixelSize: 19; color: shell.contentFocused && shell.zone === 4 && shell.tabIndex === index ? "#202020" : "white" }
                     TvIcon { anchors.right:parent.right; anchors.rightMargin:16; anchors.verticalCenter:parent.verticalCenter; width:16;height:16;kind:"down";ink:tabText.color }
                     Rectangle { x: 7; y: 52; height: 2; width: parent.width-14; color: "#59d6a6"; visible: api.view === 1 }
                     MouseArea { anchors.fill: parent; onClicked: { shell.selectTab(index); shell.takeFocus(); } }
                 }
             }
         }
-        TvButton { x: 88; y: 22; width: 790; height: 48; visible: !!api.browsePath; text: "‹   " + api.browseTitle; highlighted: shell.zone === 4 || shell.zone === 1; onClicked: { shell.goParent(); shell.takeFocus(); } }
-        Text { textFormat: Text.PlainText; x: 96; y: 32; text: api.globalSearch ? "Recherche dans toutes les bibliothèques" : api.watchlist ? "Liste de suivis" : "Accueil"; visible: (api.home || api.watchlist || api.globalSearch) && !api.browsePath; font.family: typeface.name; font.pixelSize: 23; color: "white" }
-        Text { textFormat: Text.PlainText; x: 1100; y: 32; width: 112; text: shell.timeText; horizontalAlignment: Text.AlignRight; color: "#aaa"; font.family: typeface.name; font.pixelSize: 20 }
+        IconButton { x: 88; y: 22; width: 46; height: 46; visible: !!api.browsePath; label:"Revenir à la liste précédente";icon:"back";highlighted: shell.contentFocused && (shell.zone === 4 || shell.zone === 1); onClicked: { shell.goParent(); shell.takeFocus(); } }
+        Text {textFormat:Text.PlainText;x:152;y:32;width:content.width-370;visible:!!api.browsePath;text:api.browseTitle;font.family:typeface.name;font.pixelSize:22;color:"white";elide:Text.ElideRight}
+        Text { textFormat: Text.PlainText; x: 96; y: 32; width: content.width-316; elide: Text.ElideRight; text: api.globalSearch ? "Recherche dans toutes les bibliothèques" : api.watchlist ? "Liste de suivis" : "Accueil"; visible: (api.home || api.watchlist || api.globalSearch) && !api.browsePath; font.family: typeface.name; font.pixelSize: 23; color: "white" }
+        Text { textFormat: Text.PlainText; x: content.width-180; y: 32; width: 112; text: shell.timeText; horizontalAlignment: Text.AlignRight; color: "#aaa"; font.family: typeface.name; font.pixelSize: 20 }
         Row { x: 96; y: 94; spacing: 12; visible: api.view === 1 && !api.watchlist && !api.globalSearch && !api.browsePath
-            FilterButton { width: 154; text: shell.filterOptions[api.filterIndex].title; highlighted: shell.zone === 1 && shell.filterButton === 0 && !shell.dropdown; expanded: shell.dropdown === "status"; filtered: api.filterIndex > 0; onClicked: { shell.openFilter(0); shell.takeFocus(); } }
-            FilterButton { width: 236; text: api.genreTitle; highlighted: shell.zone === 1 && shell.filterButton === 1 && !shell.dropdown; expanded: shell.dropdown === "genre"; filtered: api.genreTitle !== "Tous les genres"; onClicked: { shell.openFilter(1); shell.takeFocus(); } }
+            FilterButton { width: 154; text: shell.filterOptions[api.filterIndex].title; highlighted: shell.contentFocused && shell.zone === 1 && shell.filterButton === 0 && !shell.dropdown; expanded: shell.dropdown === "status"; filtered: api.filterIndex > 0; onClicked: { shell.openFilter(0); shell.takeFocus(); } }
+            FilterButton { width: 236; text: api.genreTitle; highlighted: shell.contentFocused && shell.zone === 1 && shell.filterButton === 1 && !shell.dropdown; expanded: shell.dropdown === "genre"; filtered: api.genreTitle !== "Tous les genres"; onClicked: { shell.openFilter(1); shell.takeFocus(); } }
             Text { textFormat: Text.PlainText; width: 30; height: 46; text: "par"; color: "#aaa"; font.family: typeface.name; font.pixelSize: 18; verticalAlignment: Text.AlignVCenter }
-            FilterButton { width: 204; text: shell.sortOptions[api.sortIndex].title; highlighted: shell.zone === 1 && shell.filterButton === 2 && !shell.dropdown; expanded: shell.dropdown === "sort"; onClicked: { shell.openFilter(2); shell.takeFocus(); } }
-            Text { textFormat: Text.PlainText; width: 260; height: 46; text: api.busy ? "Chargement…" : api.total + ((api.section || {}).type === "show" ? " séries" : " films"); color: "#aaa"; font.family: typeface.name; font.pixelSize: 19; verticalAlignment: Text.AlignVCenter }
+            FilterButton { width: 286; text: (shell.sortOptions[api.sortIndex] || shell.sortOptions[0]).title; highlighted: shell.contentFocused && shell.zone === 1 && shell.filterButton === 2 && !shell.dropdown; expanded: shell.dropdown === "sort"; onClicked: { shell.openFilter(2); shell.takeFocus(); } }
+            Text { textFormat: Text.PlainText; width: Math.max(80,content.width-878); height: 46; elide: Text.ElideRight; text: api.busy ? "Chargement…" : api.total + ((api.section || {}).type === "show" ? " séries" : " films"); color: "#aaa"; font.family: typeface.name; font.pixelSize: 19; verticalAlignment: Text.AlignVCenter }
         }
         Text { textFormat: Text.PlainText; x: 96; y: 104; visible: !shell.recommended && (api.watchlist || api.globalSearch || api.view !== 1 || !!api.browsePath); text: ((api.busy || (api.globalSearch && api.homeLoading)) ? "Chargement… · " : "") + shell.countLabel; font.family: typeface.name; font.pixelSize: 20; color: "#aaa" }
-        Text { textFormat: Text.PlainText; x: 96; y: 148; visible: !!api.searchText; text: "Résultats pour « " + api.searchText + " »"; font.family: typeface.name; font.pixelSize: 16; color: "#59d6a6" }
+        Text { textFormat: Text.PlainText; x: 96; y: 148; width: content.width-164; elide: Text.ElideRight; visible: !!api.searchText; text: "Résultats pour « " + api.searchText + " »"; font.family: typeface.name; font.pixelSize: 16; color: "#59d6a6" }
         GridView {
-            id: grid; objectName: "posterGrid"; x: 84; y: 176; width: 1104; height: 484; visible: !shell.recommended
+            id: grid; objectName: "posterGrid"; x: 84; y: 176; width: Math.floor((content.width-132)/184)*184; height: 484; visible: !shell.recommended
             cellWidth: 184; cellHeight: 330; model: api.items; currentIndex: shell.itemIndex; interactive: false; clip: true
             highlightRangeMode: GridView.ApplyRange; preferredHighlightBegin: 0; preferredHighlightEnd: 330; highlightMoveDuration: 130
-            delegate: PosterCard { api: shell.api; media: modelData; highlighted: shell.zone === 2 && shell.itemIndex === index && !shell.sheet && !shell.dropdown && !api.error
+            delegate: PosterCard { api: shell.api; media: modelData; highlighted: shell.contentFocused && shell.zone === 2 && shell.itemIndex === index && !shell.sheet && !shell.dropdown && !api.error
                 onClicked: { shell.zone = 2; shell.itemIndex = index; shell.preferredColumn = index % shell.columns; shell.openCurrent(); shell.takeFocus(); }
             }
         }
-        Rectangle { x: 1215; y: 186; width: 3; height: 458; color: "#353535"; visible: !shell.recommended && grid.contentHeight > grid.height
+        Rectangle { x: content.width-65; y: 186; width: 3; height: 458; color: "#353535"; visible: !shell.recommended && grid.contentHeight > grid.height
             Rectangle { width: 3; height: Math.max(24,parent.height * grid.height / Math.max(1,grid.contentHeight)); y: Math.max(0,Math.min(parent.height-height,grid.contentY/Math.max(1,grid.contentHeight-grid.height)*(parent.height-height))); color: "#888" }
         }
-        Column { x: 96; y: 248; width: 1050; spacing: 20; visible: !shell.displayedItems.length && !api.busy && !shell.recommended
+        Column { x: 96; y: 248; width: content.width-160; spacing: 20; visible: !shell.displayedItems.length && !api.busy && !shell.recommended
             Text { textFormat: Text.PlainText; text: api.watchlist ? "Votre liste de suivis est vide" : api.view === 2 ? "Aucune collection" : api.view === 3 ? "Aucune liste de lecture" : "Aucun titre"; font.family: typeface.name; font.pixelSize: 32; color: "white" }
-            Text { textFormat: Text.PlainText; width: 900; text: api.watchlist ? "Ajoutez des films et séries à votre Watchlist dans Plex." : api.view === 2 || api.view === 3 ? "Les éléments créés dans Plex apparaîtront ici." : "Essayez une autre bibliothèque ou modifiez les filtres."; font.family: typeface.name; font.pixelSize: 21; color: "#bbb"; wrapMode: Text.Wrap }
+            Text { textFormat: Text.PlainText; width: parent.width; text: api.watchlist ? "Ajoutez des films et séries à votre Watchlist dans Plex." : api.view === 2 || api.view === 3 ? "Les éléments créés dans Plex apparaîtront ici." : "Essayez une autre bibliothèque ou modifiez les filtres."; font.family: typeface.name; font.pixelSize: 21; color: "#bbb"; wrapMode: Text.Wrap }
         }
-        Rectangle { x: 64; y: 667; width: 1216; height: 53; color: "#ed080808" }
-        Text { textFormat: Text.PlainText; x: 96; y: 682; text: api.globalSearch && api.searchNotice ? api.searchNotice : api.homeNotice && api.home ? api.homeNotice : api.browseTitle; font.family: typeface.name; font.pixelSize: 16; color: "#aaa"; width: 650; elide: Text.ElideRight }
-        Text { textFormat: Text.PlainText; x: 750; y: 682; width: 300; horizontalAlignment: Text.AlignRight; text: shell.displayedItems.length ? (shell.recommended ? (shell.hubIndex+1) + " / " + api.hubs.length : (api.page * api.pageSize + shell.itemIndex+1) + " / " + api.total) : ""; font.family: typeface.name; font.pixelSize: 16; color: "#aaa" }
-        TvButton { x: 1090; y: 674; width: 54; height: 38; text: "‹"; visible: !shell.recommended; highlighted: shell.zone === 3 && shell.pageButton === 0; available: api.page > 0; onClicked: { shell.changePage(-1); shell.takeFocus(); } }
-        TvButton { x: 1158; y: 674; width: 54; height: 38; text: "›"; visible: !shell.recommended; highlighted: shell.zone === 3 && shell.pageButton === 1; available: (api.page+1)*api.pageSize < api.total; onClicked: { shell.changePage(1); shell.takeFocus(); } }
+        Rectangle { x: 64; y: 667; width: content.width-64; height: 53; color: "#ed080808" }
+        Text { textFormat: Text.PlainText; x: 96; y: 682; text: api.globalSearch && api.searchNotice ? api.searchNotice : api.homeNotice && api.home ? api.homeNotice : api.browseTitle; font.family: typeface.name; font.pixelSize: 16; color: "#aaa"; width: content.width-720; elide: Text.ElideRight }
+        Text { textFormat: Text.PlainText; x: content.width-595; y: 682; width: 180; horizontalAlignment: Text.AlignRight; text: shell.displayedItems.length ? (shell.recommended ? (shell.hubIndex+1) + " / " + api.hubs.length : (api.page * api.pageSize + shell.itemIndex+1) + " / " + api.total) : ""; font.family: typeface.name; font.pixelSize: 16; color: "#aaa" }
+        Row {objectName:"pageControls";x:content.width-380;y:674;spacing:12
+            IconButton {width:36;height:36;icon:"first";label:"Première page";available:api.page>0;highlighted:shell.contentFocused && shell.zone===3 && shell.pageButton===2;onClicked:{shell.pageButton=2;shell.changePage(-api.page);shell.takeFocus();}}
+            IconButton {width:36;height:36;icon:"left";label:"Page précédente";available:api.page>0;highlighted:shell.contentFocused && shell.zone===3 && shell.pageButton===0;onClicked:{shell.pageButton=0;shell.changePage(-1);shell.takeFocus();}}
+            Text {textFormat:Text.PlainText;width:142;height:36;text:"Page "+(api.page+1)+" / "+Math.max(1,Math.ceil(api.total/api.pageSize));horizontalAlignment:Text.AlignHCenter;verticalAlignment:Text.AlignVCenter;font.family:typeface.name;font.pixelSize:16;color:"#d0d0d0"}
+            IconButton {width:36;height:36;icon:"right";label:"Page suivante";available:(api.page+1)*api.pageSize<api.total;highlighted:shell.contentFocused && shell.zone===3 && shell.pageButton===1;onClicked:{shell.pageButton=1;shell.changePage(1);shell.takeFocus();}}
+        }
     }
     Rectangle {
-        width: shell.navOpen ? 280 : shell.recommended ? 166 : 64; height: 720; visible: isLibrary && !shell.detailOpen
-        color: shell.recommended ? "#ee080808" : "#101010"; clip: true
+        id: sidebar; objectName: "sidebar"; width: shell.navOpen ? 280 : 64; height: 720; visible: isLibrary && !shell.detailOpen
+        color: "#101010"; clip: true
         Behavior on width { NumberAnimation { duration: 130 } }
-        Brand { x: (parent.width-width)/2; y: 15; compact:true; visible:shell.recommended || shell.navOpen }
-        ListView { id: nav; x: 0; y: shell.recommended || shell.navOpen ? 115 : 20; width: parent.width; height: parent.height-y-18; interactive: false; clip: true; model: shell.navigation; currentIndex: shell.navIndex; highlightRangeMode: ListView.ApplyRange; preferredHighlightBegin: 0; preferredHighlightEnd: 450; highlightMoveDuration: 130
+        Brand { x: (parent.width-width)/2; y: 15; compact:true; visible:shell.navOpen }
+        ListView { id: nav; objectName: "navigationList"; x: 0; y: shell.navOpen ? 115 : 20; width: parent.width; height: parent.height-y-18; interactive: false; clip: true; model: shell.navigation; currentIndex: shell.navIndex; highlightRangeMode: ListView.ApplyRange; preferredHighlightBegin: 0; preferredHighlightEnd: height-64; highlightMoveDuration: 130
             delegate: Item { width: nav.width; height: 64
                 property bool focused: shell.navOpen && shell.navIndex === index
                 property bool active: (index === 2 && api.globalSearch) || (index === 0 && api.watchlist) || (index === 1 && api.home) || (!api.home && !api.watchlist && !api.globalSearch && index > 2 && index-3 < api.pinnedLibraries.length && api.pinnedLibraries[index-3].key === api.section.key)
-                Rectangle { y: 2; width: parent.width; height: 50; radius: 12; color: parent.focused || parent.active ? "#a20d3326" : "transparent"; border.color: parent.focused ? "#5865ffe3" : "transparent"
-                    GlowFrame { visible: parent.parent.focused || parent.parent.active; corner: 12; strength: parent.parent.focused ? .7 : .25 }
-                    Rectangle { width: 3; height: parent.height; radius: 2; color: "#65ffe3"; visible: parent.parent.active || parent.parent.focused }
+                Rectangle { y: 2; width: parent.width; height: 50; radius: 12; color: parent.focused ? "#a20d3326" : "transparent"; border.color: parent.focused ? "#5865ffe3" : "transparent"
+                    GlowFrame { visible: parent.parent.focused; corner: 12; strength: .7 }
+                    Rectangle { width: 3; height: parent.height; radius: 2; color: "#65ffe3"; visible: parent.parent.focused }
                 }
-                TvIcon { x: shell.recommended ? 31 : 20; y: 15; width: 22; height: 22; kind: modelData.icon; ink: parent.focused || parent.active ? "#fcfcfc" : "#b6b6b6" }
-                Text { textFormat: Text.PlainText; visible: shell.recommended || shell.navOpen; x: shell.recommended ? 71 : 57; width: parent.width-x-8; y: 17; text: modelData.title; font.family: typeface.name; font.pixelSize: shell.recommended ? 14 : 18; elide: Text.ElideRight; color: parent.focused || parent.active ? "#fcfcfc" : "#bbbbbb" }
+                TvIcon { x: 20; y: 15; width: 22; height: 22; kind: modelData.icon; ink: parent.focused ? "#fcfcfc" : parent.active ? "#59d6a6" : "#b6b6b6" }
+                Text { textFormat: Text.PlainText; visible: shell.navOpen; x: 57; width: parent.width-x-12; y: 17; text: modelData.title; font.family: typeface.name; font.pixelSize: 18; elide: Text.ElideRight; color: parent.focused || parent.active ? "#fcfcfc" : "#bbbbbb" }
                 MouseArea { anchors.fill: parent; onClicked: { shell.openNav(); shell.navIndex = index; shell.selectNav(); shell.takeFocus(); } }
             }
         }
@@ -402,41 +403,23 @@ FocusScope {
 
     AuthScreen { anchors.fill: parent; api: shell.api;rememberFocused:shell.authChoice===1; visible: api.state === "auth" || api.state === "starting"; onConnectRequested: { api.connectAccount(); shell.takeFocus(); }onRememberToggled:{api.setRememberAccount(!api.rememberAccount);shell.authChoice=1;shell.takeFocus();} }
     ProfileScreen {id:profilePanel;anchors.fill:parent;api:shell.api;visible:api.state==="profiles"}
-    LibraryScreen {id:libraryPanel;anchors.fill:parent;api:shell.api;visible:api.state==="libraries"}
+    LibraryScreen {id:libraryPanel;objectName:"libraryPanel";anchors.fill:parent;api:shell.api;visible:api.state==="libraries"}
     Item {
         anchors.fill: parent; visible: api.state === "servers"
         Text { textFormat: Text.PlainText; x: 90; y: 75; text: "Choisissez votre serveur"; color: "#f5f5f5"; font.family: typeface.name; font.pixelSize: 38; font.weight: Font.DemiBold }
         Text { textFormat: Text.PlainText; x: 90; y: 135; text: "Votre choix sera retrouvé automatiquement au prochain lancement."; color: "#afafaf"; font.family: typeface.name; font.pixelSize: 22 }
         ListView { x: 90; y: 214; width: 1100; height: 390; spacing: 14; clip: true; model: api.servers; currentIndex: shell.serverIndex; highlightRangeMode: ListView.ApplyRange
-            delegate: TvButton { width: 1100; height: 74; text: modelData.name; textSize: 25; highlighted: index === shell.serverIndex; onClicked: { api.chooseServer(index); shell.takeFocus(); } }
+            delegate: TvButton { width: 1100; height: 74; text: modelData.name; textSize: 25; highlighted: !api.error && index === shell.serverIndex; onClicked: { api.chooseServer(index); shell.takeFocus(); } }
         }
     }
 
-    Rectangle {
-        anchors.fill: parent; visible: shell.detailOpen; color: "#080808"
-        Image { x: 280; width: 1000; height: 720; source: shell.detailOpen ? api.imageUrl(api.detail.art || api.detail.thumb || "",1600,900) : ""; asynchronous: true; fillMode: Image.PreserveAspectCrop }
-        Image { anchors.fill: parent; source: "assets/cinema-shade.svg" }
-        Text { textFormat: Text.PlainText; x: 94; y: 48; text: "‹   " + api.browseTitle; font.family: typeface.name; font.pixelSize: 19; color: "#c4c4c4" }
-        Text { textFormat: Text.PlainText; x: 94; y: 169; text: api.detail.type === "show" ? "SÉRIE" : api.detail.type === "season" ? "SAISON" : api.detail.type==="episode" ? "ÉPISODE" : "FILM"; font.family: typeface.name; font.pixelSize: 13; font.letterSpacing: 2.8; color: "#59d6a6" }
-        Text { textFormat: Text.PlainText; x: 90; y: 205; width: 1060; height: 120; text: Plex.label(api.detail); font.family: typeface.name; font.pixelSize: 48; font.weight: Font.DemiBold; color: "#fafafa"; maximumLineCount: 2; wrapMode: Text.Wrap; elide: Text.ElideRight }
-        Text { textFormat: Text.PlainText; x: 94; y: 346; text: String(api.detail.year || "") + (api.detail.duration ? "    ·    " + Plex.duration(api.detail.duration) : "") + (api.detail.contentRating ? "    ·    " + Plex.age(api.detail.contentRating) : ""); font.family: typeface.name; font.pixelSize: 21; color: "#d9d9d9" }
-        Text { textFormat: Text.PlainText; x: 94; y: 391; width: 860; height: 108; text: api.detail.cloudOnly ? "Ce titre fait partie de votre liste de suivis Plex. Il n’est pas disponible dans les bibliothèques de ce serveur." : api.detail.summary || "Aucun résumé disponible."; font.family: typeface.name; font.pixelSize: 22; color: "#c5c5c5"; maximumLineCount: 3; wrapMode: Text.Wrap; elide: Text.ElideRight; lineHeight: 1.2 }
-        Row { x: 94; y: 546; spacing: 16
-            TvButton { width: 270; height: 58; available: !api.detail.cloudOnly; text: api.detail.cloudOnly ? "Absent de ce serveur" : api.detail.type === "show" ? "Voir les saisons" : api.detail.type === "season" ? "Voir les épisodes" : api.detail.viewOffset ? "Reprendre à " + Plex.clock(api.detail.viewOffset) : "Lire"; icon: "play"; highlighted: shell.detailZone === 0 && shell.detailButton === 0 && !shell.sheet; onClicked: { shell.detailZone = 0; shell.detailButton = 0; shell.detailAction(); shell.takeFocus(); } }
-            TvButton { width: 220; height: 58; text: "Depuis le début"; visible: !!api.detail.viewOffset && api.detail.type !== "show" && api.detail.type !== "season"; highlighted: shell.detailZone === 0 && shell.detailButton === 1 && !shell.sheet; onClicked: { shell.detailZone = 0; shell.detailButton = 1; shell.detailAction(); shell.takeFocus(); } }
-            TvButton { width: 250; height: 58; visible: !api.detail.cloudOnly; text: api.detail.viewCount ? "Marquer non vu" : "Marquer vu"; icon: "check"; highlighted: shell.detailZone === 0 && shell.detailButton === 2 && !shell.sheet; onClicked: { api.markWatched(); shell.takeFocus(); } }
-            TvButton { width: 100; height: 58; text: "Infos"; highlighted: shell.detailZone === 0 && shell.detailButton === 3 && !shell.sheet; onClicked: { shell.sheet = "info"; shell.takeFocus(); } }
-            TvButton { width: 140; height: 58; text: "Retour"; highlighted: shell.detailZone === 0 && shell.detailButton === 4 && !shell.sheet; onClicked: { shell.detailOpen = false; shell.takeFocus(); } }
-        }
-        Row {x:94;y:624;spacing:12;Repeater {model:shell.detailActions;delegate:TvButton {width:196;height:46;text:modelData.title;textSize:17;highlighted:shell.detailZone===1 && shell.detailSecondary===index && !shell.sheet;onClicked:{shell.detailZone=1;shell.detailSecondary=index;shell.detailAction();shell.takeFocus();}}}}
-        RemoteHints { anchors.right:parent.right;anchors.rightMargin:94;y:678;keySize:28;textSize:14;actions:[{key:"back",label:"Revenir aux affiches"}] }
-    }
+    DetailView { id:detailView;objectName:"detailView";anchors.fill:parent;api:shell.api;controller:shell;visible:shell.detailOpen }
 
     Rectangle { anchors.fill: parent; color: "#6b000000"; visible: !!shell.dropdown; MouseArea { anchors.fill: parent; onClicked: { shell.closeDropdown(); shell.takeFocus(); } } }
     DropdownMenu {
         id: filterMenu; objectName: "filterMenu"
         visible: !!shell.dropdown; x: shell.dropdown==="view" ? 96 : shell.filterButton === 0 ? 96 : shell.filterButton === 1 ? 262 : 552; y: shell.dropdown==="view" ? 78 : 148
-        width: 330; title: shell.dropdown==="view" ? "AFFICHER" : shell.dropdown === "status" ? "STATUT" : shell.dropdown === "sort" ? "TRIER PAR" : "GENRE"
+        width: shell.dropdown === "sort" ? 400 : 330; title: shell.dropdown==="view" ? "AFFICHER" : shell.dropdown === "status" ? "STATUT" : shell.dropdown === "sort" ? "TRIER PAR" : "GENRE"
         options: shell.dropdownOptions; focusedIndex: shell.dropdownIndex; selectedIndex: shell.dropdownSelected; loading: shell.genrePending
         onChosen: { shell.applyFilter(index); shell.takeFocus(); }
     }
@@ -444,14 +427,14 @@ FocusScope {
         anchors.fill: parent; color: "#da000000"; visible: !!shell.sheet && shell.sheet !== "search" && shell.sheet !== "settings"
         Rectangle {
             x: shell.sheet === "synopsis" ? 180 : 320; y: 86; width: shell.sheet === "synopsis" ? 920 : 640; height: 548; radius: 14; color: "#303030"; border.color: "#505050"
-            Text { textFormat: Text.PlainText; x: 36; y: 28; width: parent.width - 72; text: shell.sheet === "synopsis" ? Plex.label(api.detail) : shell.sheet === "info" ? "Informations du média" : shell.sheet === "trailers" ? "Bandes-annonces" : shell.sheet==="extras" ? "Bonus" : shell.sheet==="actors" ? "Distribution · Titres dans cette bibliothèque" : shell.sheet==="about" ? "À propos" : "Compte"; font.family: typeface.name; font.pixelSize: 28; color: "#f3f3f3"; elide: Text.ElideRight }
-            ListView { x: 32; y: 106; width: 576; height: 350; spacing: 12; visible: ["trailers","actors","extras"].indexOf(shell.sheet)>=0; clip: true; interactive: false; model: shell.sheetOptions; currentIndex: shell.sheetIndex; highlightRangeMode: ListView.ApplyRange
-                delegate: TvButton { width: 576; height: 58; text: modelData.title; highlighted: shell.sheetIndex === index; onClicked: { shell.sheetIndex = index; shell.sheetAction(); shell.takeFocus(); } }
+            Text { textFormat: Text.PlainText; x: 36; y: 28; width: parent.width - 72; text: shell.sheet === "synopsis" ? Plex.label(api.detail) : shell.sheet === "info" ? "Informations du média" : shell.sheet === "trailers" ? "Bandes-annonces" : shell.sheet==="about" ? "À propos" : "Compte"; font.family: typeface.name; font.pixelSize: 28; color: "#f3f3f3"; elide: Text.ElideRight }
+            ListView { x: 32; y: 106; width: 576; height: 350; spacing: 12; visible: shell.sheet === "trailers"; clip: true; interactive: false; model: shell.sheetOptions; currentIndex: shell.sheetIndex; highlightRangeMode: ListView.ApplyRange
+                delegate: TvButton { width: 576; height: 58; text: modelData.title; highlighted: !api.error && shell.sheetIndex === index; onClicked: { shell.sheetIndex = index; shell.sheetAction(); shell.takeFocus(); } }
             }
             Text { textFormat: Text.PlainText; x: 36; y: 78; width: parent.width - 72; visible: shell.sheet === "account"; text: (api.profileName ? api.profileName+" · " : "")+api.serverName + " · " + api.connectionLabel; font.family: typeface.name; font.pixelSize: 18; color: "#bababa";elide:Text.ElideRight }
             ListView { x: 32; y: 124; width: 576; height: 350; spacing: 10; visible: shell.sheet === "account";clip:true;interactive:false;currentIndex:shell.sheetIndex;highlightRangeMode:ListView.ApplyRange
                 model: shell.accountActions
-                delegate: TvButton { width: 576; height: 58; text: modelData.title; highlighted: shell.sheetIndex === index; onClicked: { shell.sheetIndex = index; shell.sheetAction(); shell.takeFocus(); } }
+                delegate: TvButton { width: 576; height: 58; text: modelData.title; highlighted: !api.error && shell.sheetIndex === index; onClicked: { shell.sheetIndex = index; shell.sheetAction(); shell.takeFocus(); } }
             }
             Flickable { id: synopsis; objectName: "synopsis"; x: 36; y: 92; width: parent.width - 72; height: 354; clip: true; visible: shell.sheet === "synopsis"; interactive: false; contentHeight: synopsisText.height
                 Text { textFormat: Text.PlainText; id: synopsisText; width: synopsis.width; text: api.detail.cloudOnly ? "Ce titre fait partie de votre liste de suivis Plex. Il n’est pas disponible dans les bibliothèques de ce serveur." : api.detail.summary || "Aucun résumé disponible."; wrapMode: Text.Wrap; font.family: typeface.name; font.pixelSize: 24; lineHeight: 1.4; color: "#dadada" }
@@ -466,8 +449,8 @@ FocusScope {
         backdrop: shell.settingsImage
         onChosen: { shell.sheetIndex = index; shell.sheetAction(); shell.takeFocus(); }
     }
-    Rectangle { x: 850; y: 42; width: 340; height: 54; radius: 8; color: "#f0181818"; border.color: "#65ffe3"; visible: !!api.notice
-        Text { textFormat: Text.PlainText; anchors.centerIn: parent; text: api.notice; font.family: typeface.name; font.pixelSize: 17; color: "#fcfcfc" }
+    Rectangle { x: 650; y: 42; width: 560; height: Math.max(54,noticeText.implicitHeight+28); radius: 8; color: "#f0181818"; border.color: "#65ffe3"; visible: !!api.notice
+        Text { id:noticeText; textFormat: Text.PlainText; anchors.centerIn: parent; width:parent.width-32;wrapMode:Text.Wrap;text: api.notice; font.family: typeface.name; font.pixelSize: 17; color: "#fcfcfc" }
     }
     Rectangle {
         anchors.fill: parent; color: "#f2080808"; visible: shell.sheet === "search"

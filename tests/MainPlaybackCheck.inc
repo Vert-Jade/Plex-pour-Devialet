@@ -85,6 +85,10 @@
                 root.qaResumeBase=root.lastPosition;root.qaPhase=12;
             }
             if(root.qaPhase===12){
+                root.handlePlaybackKey(Qt.Key_Down);
+                root.qaReport("down_hides_controls_without_pausing",!root.controlsVisible && !root.optionsOpen && player.playbackState===MediaPlayer.PlayingState);
+                root.handlePlaybackKey(Qt.Key_Up);
+                root.qaReport("up_reveals_controls_without_pausing",root.controlsVisible && !root.optionsOpen && player.playbackState===MediaPlayer.PlayingState);
                 if(root.qaConfig.direct){
                     root.qaReport("direct_original_has_image_sound_and_resume",player.hasAudio && player.hasVideo && player.position>=90000 && stream.retryStage===0);
                     player.pause();root.qaPhase=10;return;

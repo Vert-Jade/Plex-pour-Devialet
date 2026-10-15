@@ -25,10 +25,11 @@ Item {
         property bool rememberAccount: true
         property bool allowAdultSearch: false
         property bool firstLibrarySetup: false
-        property var libraryPrefs: ({pinned:["1","2","3"],adult:[]})
+        property var libraryPrefs: ({pinned:["1","2","3"],adult:[],mature:[]})
         readonly property var pinnedLibraries: libraries.filter(function(l){return libraryPrefs.pinned.indexOf(String(l.key))>=0;})
-        function libraryFlag(key,flag){return libraryPrefs[flag].indexOf(String(key))>=0;}
+        function libraryFlag(key,flag){return (libraryPrefs[flag] || []).indexOf(String(key))>=0;}
         function toggleLibrary(index,flag){var prefs=JSON.parse(JSON.stringify(libraryPrefs)),key=String(libraries[index].key),p=prefs[flag].indexOf(key);if(p>=0)prefs[flag].splice(p,1);else prefs[flag].push(key);libraryPrefs=prefs;}
+        function classifyLibrary(index,classification){var prefs=JSON.parse(JSON.stringify(libraryPrefs)),key=String(libraries[index].key);prefs.adult=prefs.adult.filter(function(k){return k!==key;});prefs.mature=(prefs.mature || []).filter(function(k){return k!==key;});if(classification!=="none")prefs[classification].push(key);libraryPrefs=prefs;}
         function openLibraries(){state="libraries";}
         function closeLibraries(){showHome();state="library";}
         function setRememberAccount(enabled){rememberAccount=enabled;}
@@ -37,8 +38,10 @@ Item {
         function loadProfiles(){state="profiles";}
         function cancelProfiles(){state="library";}
         function chooseProfile(index,pin){if(index===1 && pin!=="1234"){profileError="Code PIN incorrect ou accès refusé.";return;}profileId=profiles[index].id;profileName=profiles[index].title;profileError="";state="library";}
-        function playExtra(index){trailerCount++;}
-        function openActor(index){browseTitle="Avec "+detail.Role[index].tag;items=allItems;libraryLoaded();}
+        property int lastExtra: -1
+        property int lastActor: -1
+        function playExtra(index){lastExtra=index;trailerCount++;}
+        function openActor(index){history=history.concat([{path:browsePath,title:browseTitle,page:page,items:items,view:view,home:home}]);browsePath="/actor";lastActor=index;browseTitle="Avec "+detail.Role[index].tag;items=allItems;libraryLoaded();}
         property string state: "library"
         property string serverName: "Maison"
         property string connectionLabel: "Réseau local"
@@ -128,6 +131,7 @@ Item {
         function logout() { state = "auth"; }
         function connectAccount() { }
         function retry() { error = ""; }
+        function cancelDetails() { return false; }
     }
     Item {
         objectName: "safeCanvas"; width: 1280; height: 720; anchors.centerIn: parent
@@ -135,4 +139,5 @@ Item {
         Shell { id: shell; objectName: "shell"; api: fixture; anchors.fill: parent }
     }
     property alias service: fixture
+    property alias controller: shell
 }

@@ -151,7 +151,7 @@ test('filter changes reset page and send filtering to the entire server library'
  s.pending.done({MediaContainer:{Metadata:[{title:'Result'}],size:1,totalSize:108}});assert.equal(s.total,108);assert.equal(s.items.length,1);
 });
 test('query encoding preserves genres, sorting and paging without injection',()=>{
- const path=plex.libraryPath({key:'2'},2,1,'A&B',40,40);const u=new URL('https://server'+path);
+ const path=plex.libraryPath({key:'2'},2,2,'A&B',40,40);const u=new URL('https://server'+path);
  assert.equal(u.searchParams.get('genre'),'A&B');assert.equal(u.searchParams.get('inProgress'),'1');assert.equal(u.searchParams.get('sort'),'addedAt:desc');assert.equal(u.searchParams.get('X-Plex-Container-Start'),'40');
  assert.equal(plex.mediaUrl('https://server','https://other/path','secret'),'');
  assert.equal(plex.mediaUrl('https://server','//other/path','secret'),'');
@@ -196,7 +196,44 @@ test('watch state changes only after server confirmation',()=>{
  s.markWatched();assert.match(s.pending.url,/unscrobble/);s.pending.failed(0);assert.equal(s.detail.viewCount,1);
 });
 test('additional sorts and watched filter have explicit server values',()=>{
- const u=new URL('https://server'+plex.libraryPath({key:'1'},3,6,'',0,40));assert.equal(u.searchParams.get('unwatched'),'0');assert.equal(u.searchParams.get('sort'),'duration:desc');
+ const u=new URL('https://server'+plex.libraryPath({key:'1'},3,11,'',0,40));assert.equal(u.searchParams.get('unwatched'),'0');assert.equal(u.searchParams.get('sort'),'duration:desc');
+});
+
+test('each library order has two directions and sorts the complete filtered result before paging',()=>{
+ const expected=['titleSort:asc','titleSort:desc','addedAt:desc','addedAt:asc','year:desc','year:asc','originallyAvailableAt:desc','originallyAvailableAt:asc','rating:desc','rating:asc','duration:asc','duration:desc'];
+ assert.deepEqual(Array.from(plex.librarySorts(),x=>x.value),expected);
+ for(let index=0;index<expected.length;index++){
+  const s=setup();s.serverUrl='https://server';s.sortIndex=-1;s.page=4;s.filterIndex=2;s.genreKey='A&B';s.changeSort(index);
+  const u=new URL(s.pending.url);assert.equal(u.searchParams.get('sort'),expected[index]);assert.equal(u.searchParams.get('inProgress'),'1');assert.equal(u.searchParams.get('genre'),'A&B');assert.equal(u.searchParams.get('X-Plex-Container-Start'),'0');
+  s.pending.done({MediaContainer:{Metadata:[],totalSize:100}});s.changePage(1);
+  const next=new URL(s.pending.url);assert.equal(next.searchParams.get('sort'),expected[index]);assert.equal(next.searchParams.get('X-Plex-Container-Start'),'40');
+ }
+ const s=setup();for(const invalid of [-1,12,1.5,NaN])s.changeSort(invalid);assert.equal(s.pending,undefined);assert.equal(s.sortIndex,0);
+});
+
+test('library classification preserves pins, migrates previous settings and separates mature from explicit search',()=>{
+ const s=setup();s.classifyLibrary(0,'mature');assert.deepEqual(Array.from(s.libraryPrefs.pinned),['1']);assert.deepEqual(Array.from(s.libraryPrefs.mature),['1']);assert.equal(s.adultLibraries.length,0);
+ assert.equal(plex.adultSearchResult({contentRating:'fr/18'},s.libraries[0],s.adultLibraries),false);
+ s.toggleLibrary(0,'pinned');assert.deepEqual(Array.from(s.libraryPrefs.mature),['1']);
+ s.classifyLibrary(0,'adult');assert.equal(s.libraryPrefs.mature.length,0);assert.equal(plex.adultSearchResult({},s.libraries[0],s.adultLibraries),true);
+ const saved=s.saved.libraryPreferences;s.classifyLibrary(-1,'none');s.classifyLibrary(0,'unknown');assert.equal(s.saved.libraryPreferences,saved);
+ s.classifyLibrary(0,'none');assert.equal(s.adultLibraries.length,0);assert.equal(s.libraryPrefs.mature.length,0);
+ s.libraryScope='another-profile';assert.equal(s.libraryPrefs,null);
+});
+
+test('empty Home cancels the pending catalogue request and invalid controls leave the current view intact',()=>{
+ const s=setup();let canceled=0;s.network.cancel=()=>canceled++;
+ s.saved.libraryPreferences='{"scope":{"pinned":[],"adult":[]}}';s.showHome();assert.equal(canceled,1);assert.equal(s.hubs.length,0);assert.ok(s.homeNotice);
+ s.genres=[];const section=s.section;s.selectLibrary(900);assert.equal(s.section,section);
+ for(const index of [-1,4,0.5,NaN])s.changeFilter(index);s.chooseGenre(1);
+ assert.equal(s.pending,undefined);assert.equal(s.filterIndex,0);
+});
+
+test('Back can cancel a pending detail request without canceling another operation',()=>{
+ const s=setup();let canceled=0;s.network.cancel=()=>canceled++;
+ s.network.busy=true;s.lastAction='detail';assert.equal(s.cancelDetails(),true);assert.equal(canceled,1);
+ s.lastAction='items';assert.equal(s.cancelDetails(),false);assert.equal(canceled,1);
+ s.lastAction='detail';s.network.busy=false;assert.equal(s.cancelDetails(),false);
 });
 
 test('libraries sort in French alphabetical order without hardcoded name exclusions',()=>{

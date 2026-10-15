@@ -74,6 +74,18 @@ Application {
     function startNext(automatic) {if(!nextMedia.ratingKey)return;var item=nextMedia;waitingNext=false;nextMedia=({});automaticContinuation=!!automatic;plex.startNextEpisode(item);automaticContinuation=false;if(!watching)shell.forceActiveFocus();}
     Timer {interval:1000;repeat:true;running:root.waitingNext && !!root.nextMedia.ratingKey && root.nextSeconds>0;onTriggered:{root.nextSeconds--;if(root.nextSeconds===0)root.startNext(true);}}
     function reveal() { controlsVisible = true; hideControls.restart(); }
+    function handlePlaybackKey(key) {
+        lastInteraction=Date.now();
+        if(key===Qt.Key_Down){controlsVisible=false;hideControls.stop();return true;}
+        if(key===Qt.Key_Up){reveal();return true;}
+        if(key===Qt.Key_Back || key===Qt.Key_Escape || key===Qt.Key_Backspace || key===Qt.Key_MediaStop){stopPlayback();return true;}
+        if(key===Qt.Key_Menu){openPlaybackOptions();return true;}
+        if(key===Qt.Key_Left || key===Qt.Key_Right){reveal();seekPlayback(lastPosition+(key===Qt.Key_Left ? -10000 : 10000),false);return true;}
+        if(key===Qt.Key_Return || key===Qt.Key_Enter || key===Qt.Key_Select || key===Qt.Key_Space || key===Qt.Key_MediaTogglePlayPause || key===Qt.Key_MediaPlay || key===Qt.Key_MediaPause){
+            reveal();setPlaybackPaused(key===Qt.Key_MediaPlay ? false : key===Qt.Key_MediaPause ? true : !pausedIntent);return true;
+        }
+        return false;
+    }
     function playbackFailure() {
         if(!watching || clearingPlayer) return;
         watchdog.stop();controlsVisible=true;
@@ -188,24 +200,14 @@ Application {
                 x: 970; y: 58; width: 240; height: 52; radius: 5; color: "#ee303030"; visible: !!root.skipNotice
                 Text { textFormat: Text.PlainText; anchors.centerIn: parent; text: root.skipNotice; color: "#59d6a6"; font.family: typeface.name; font.pixelSize: 21 }
             }
-            Keys.onPressed: {
-                root.lastInteraction=Date.now();
-                root.reveal();
-                if (event.key === Qt.Key_Back || event.key === Qt.Key_Escape || event.key === Qt.Key_Backspace || event.key === Qt.Key_MediaStop) { root.stopPlayback(); event.accepted = true; }
-                else if (event.key === Qt.Key_Menu || event.key === Qt.Key_Up || event.key === Qt.Key_Down) { root.openPlaybackOptions();event.accepted=true; }
-                else if (event.key === Qt.Key_Left || event.key === Qt.Key_Right) { root.seekPlayback(root.lastPosition + (event.key === Qt.Key_Left ? -10000 : 10000),false); event.accepted = true; }
-                else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter || event.key === Qt.Key_Select || event.key === Qt.Key_Space || event.key === Qt.Key_MediaTogglePlayPause || event.key === Qt.Key_MediaPlay || event.key === Qt.Key_MediaPause) {
-                    root.setPlaybackPaused(event.key===Qt.Key_MediaPlay ? false : event.key===Qt.Key_MediaPause ? true : !root.pausedIntent);
-                    event.accepted = true;
-                }
-            }
+            Keys.onPressed: event.accepted=root.handlePlaybackKey(event.key)
             Rectangle {
                 x: 0; y: 492; width: 1280; height: 228; radius: 0; color: "#ed080808"; visible: root.controlsVisible
                 Text { textFormat: Text.PlainText; font.family: typeface.name; x: 68; y: 22; width: 1144; text: Plex.label(root.playingItem); elide: Text.ElideRight; color: "#f5f5f5"; font.pixelSize: 28; font.weight: Font.DemiBold }
                 Text { textFormat: Text.PlainText; font.family: typeface.name; x: 68; y: 66; width: 1144; text: root.playbackMessage || (root.pausedIntent ? "En pause · " : "")+stream.status; color: "#cccccc"; font.pixelSize: 18; wrapMode: Text.Wrap }
                 Text { textFormat: Text.PlainText; font.family:typeface.name;x:68;y:99;text:root.pausedIntent ? "" : "Fin vers "+Qt.formatTime(new Date(Date.now()+Math.max(0,root.videoDuration-root.lastPosition)),"hh:mm");color:"#aaaaaa";font.pixelSize:14 }
                 Rectangle { x: 68; y: 122; width: 1144; height: 5; radius: 2; color: "#555555"; Rectangle { height: parent.height; width: parent.width * Math.min(1, root.lastPosition / Math.max(1, root.videoDuration)); color: "#59d6a6" } }
-                RemoteHints { x:68;y:154;actions:[{key:"ok",label:root.pausedIntent ? "Reprendre" : "Pause"},{key:"horizontal",label:"−10 s / +10 s"},{key:"menu",label:"Audio et sous-titres"},{key:"back",label:"Quitter"}] }
+                RemoteHints { x:68;y:154;keySize:32;textSize:15;groupSpacing:22;labelSpacing:9;actions:[{key:"ok",label:root.pausedIntent ? "Reprendre" : "Pause"},{key:"horizontal",label:"-10 s / +10 s"},{key:"menu",label:"Audio et sous-titres"},{key:"down",label:"Masquer"},{key:"up",label:"Afficher"},{key:"back",label:"Quitter"}] }
                 Text { textFormat: Text.PlainText; font.family: typeface.name; anchors.right: parent.right; anchors.rightMargin: 68; y: 96; text: Plex.clock(root.lastPosition) + " / " + Plex.clock(root.videoDuration); color: "#59d6a6"; font.pixelSize: 18 }
             }
         }

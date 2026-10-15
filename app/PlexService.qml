@@ -311,13 +311,21 @@ Item {
     }
     function clearSearch() {cancelBrowse();searchResults=[];searchText="";if(globalSearch){items=[];total=0;}}
     function openLibraries() {cancelBrowse();network.cancel();previewRequest.cancel();error="";state="libraries";}
-    function libraryFlag(key,flag) {return !!libraryPrefs && libraryPrefs[flag].indexOf(String(key))>=0;}
+    function libraryFlag(key,flag) {return !!libraryPrefs && !!libraryPrefs[flag] && libraryPrefs[flag].indexOf(String(key))>=0;}
     function toggleLibrary(index,flag) {
         var library=libraries[index];if(!library || ["pinned","adult"].indexOf(flag)<0)return;
         var all = Plex.preferenceMap(saved.libraryPreferences);
-        var prefs=libraryPrefs || {pinned:[],adult:[]},key=String(library.key);
-        var next={pinned:prefs.pinned.slice(),adult:prefs.adult.slice()},position=next[flag].indexOf(key);
+        var prefs=libraryPrefs || {pinned:[],adult:[],mature:[]},key=String(library.key);
+        var next={pinned:prefs.pinned.slice(),adult:prefs.adult.slice(),mature:prefs.mature.slice()},position=next[flag].indexOf(key);
         if(position<0)next[flag].push(key);else next[flag].splice(position,1);
+        all[libraryScope]=next;saved.libraryPreferences=JSON.stringify(all);clearSearch();
+    }
+    function classifyLibrary(index,classification) {
+        var library=libraries[index];if(!library || ["none","mature","adult"].indexOf(classification)<0)return;
+        var all=Plex.preferenceMap(saved.libraryPreferences),key=String(library.key);
+        var prefs=libraryPrefs || {pinned:[],adult:[],mature:[]};
+        var next={pinned:prefs.pinned.slice(),adult:prefs.adult.filter(function(k){return k!==key;}),mature:prefs.mature.filter(function(k){return k!==key;})};
+        if(classification!=="none")next[classification].push(key);
         all[libraryScope]=next;saved.libraryPreferences=JSON.stringify(all);clearSearch();
     }
     function closeLibraries() {
@@ -325,6 +333,7 @@ Item {
         firstLibrarySetup=false;showHome();
     }
     function selectLibrary(index) {
+        if (!libraries[index]) return;
         cancelBrowse();globalSearch=false;
         homeRequest.cancel();
         section = libraries[index]; if (!section) return;
@@ -372,7 +381,7 @@ Item {
         view = index; home = false; watchlist = false; searchText = ""; history = []; browsePath = ""; browseTitle = section.title; page = 0; hubs = []; items = []; total = 0; loadItems();
     }
     function showHome() {
-        cancelBrowse();globalSearch=false;
+        cancelBrowse();network.cancel();globalSearch=false;
         homeRequest.cancel(); home = true; watchlist = false; hubs = []; items = []; view = 0; history = []; browsePath = ""; browseTitle = "Accueil"; page = 0; searchText = ""; loadItems(); }
     function loadHubs() {
         if (home) { loadHome(); return; }
@@ -451,8 +460,11 @@ Item {
         },function(){if(generation!==searchGeneration || !globalSearch)return;searchNotice="Recherche partielle : une bibliothèque n’a pas répondu. Relancez la recherche pour réessayer.";searchLibrary(index+1,0,generation);});
     }
     function showSearchPage() { total=searchResults.length;items=searchResults.slice(page*pageSize,(page+1)*pageSize);libraryLoaded(); }
-    function changeFilter(index) { filterIndex = index; page = 0; loadItems(); }
-    function changeSort(index) { sortIndex = index; page = 0; loadItems(); }
+    function changeFilter(index) { if(index!==Math.floor(index) || index<0 || index>3)return;filterIndex = index; page = 0; loadItems(); }
+    function changeSort(index) {
+        if (index !== Math.floor(index) || index < 0 || index >= Plex.librarySorts().length || index === sortIndex) return;
+        sortIndex = index; page = 0; loadItems();
+    }
     function changePage(delta) { var p = page + delta; if (p >= 0 && p * pageSize < total) { page = p; loadItems(); } }
     function loadGenres() {
         error = ""; lastAction = "genres";
@@ -460,7 +472,11 @@ Item {
             genres = [{key:"", title:"Tous les genres"}].concat((body.MediaContainer || {}).Directory || []); genresLoaded();
         });
     }
-    function chooseGenre(index) { genreKey = String(genres[index].key); genreTitle = genres[index].title; page = 0; loadItems(); }
+    function chooseGenre(index) { if(!genres[index])return;genreKey = String(genres[index].key); genreTitle = genres[index].title; page = 0; loadItems(); }
+    function cancelDetails() {
+        if(lastAction!=="detail" || !network.busy)return false;
+        network.cancel();error="";return true;
+    }
     function openItem(index) {
         if (busy || !items[index]) return;
         openMedia(items[index]);

@@ -37,5 +37,15 @@ key(Qt.Key_Return);capture('options-chapitres.png');key(Qt.Key_Escape)
 for _ in range(8):key(Qt.Key_Down)
 options=root.findChild(QObject,'optionList')
 assert options.property('currentIndex')==8 and options.property('contentY')>0
+# Render the actual main.qml legend rather than maintaining a second copy.
+legend=next(line.strip() for line in (root_path/'app/main.qml').read_text(encoding='utf8').splitlines() if 'RemoteHints {' in line)
+legend=legend.replace('RemoteHints {','RemoteHints { objectName:"playbackLegend";',1)
+hints=root_path/'.local/preview/PlaybackHints.qml'
+hints.write_text('import QtQuick 2.4\nimport "../../app"\nRectangle { id:root; width:1280;height:230;color:"#080808";property bool pausedIntent:false;'+legend+'}',encoding='utf8')
+view.setSource(QUrl.fromLocalFile(str(hints)));view.resize(1280,230);QTest.qWait(200)
+assert view.status()!=QQuickView.Error
+hint_row=view.rootObject().findChild(QObject,'playbackLegend')
+assert hint_row.property('x')+hint_row.property('width')<=1212,'Playback remote hints overflow'
+capture('touches-lecture.png')
 view.close();assert not errors,errors
 print('Playback QML OK: audio, sous-titres, taille, retour, focus et rendu 720p/1080p.')

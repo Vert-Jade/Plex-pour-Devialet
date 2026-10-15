@@ -17,8 +17,8 @@ function settingsRows(a) {
         {title:"Retrouver mon profil",hint:"Ouvrir le dernier profil connecté au démarrage de l’application.",value:a.rememberProfile ? "Automatique" : "Choisir au début",icon:"user"},
         {title:"Épisode suivant",hint:"Un compte à rebours de 15 secondes, annulable avec Retour.",value:a.autoNextEpisode ? "Automatique" : "Désactivé",icon:"play"},
         {title:"Rester connecté",hint:"Mémoriser la connexion sur ce Player. Aucun mot de passe Plex enregistré.",value:a.rememberAccount ? "Activé" : "Cette session",icon:"user"},
-        {title:"Résultats adultes dans la recherche",hint:"Selon la classification Plex et les bibliothèques signalées comme adultes.",value:a.allowAdultSearch ? "Autorisés" : "Masqués",icon:"search"},
-        {title:"Mes bibliothèques",hint:"Choisir les bibliothèques épinglées et celles réservées aux adultes.",value:"Choisir",icon:"folder"}
+        {title:"Contenus explicites dans la recherche",hint:"Exclure les contenus sexuels, sans masquer les films pour public averti.",value:a.allowAdultSearch ? "Autorisés" : "Masqués",icon:"search"},
+        {title:"Mes bibliothèques",hint:"Personnaliser les épingles et la classification des bibliothèques.",value:"Choisir",icon:"folder"}
     ];
 }
 function preferenceMap(serialized) {
@@ -32,7 +32,7 @@ function libraryPreferences(serialized,scope) {
     if (!Object.prototype.hasOwnProperty.call(values,scope)) return null;
     var prefs = values[scope];
     if (!prefs || !(prefs.pinned instanceof Array) || !(prefs.adult instanceof Array)) return null;
-    return {pinned:prefs.pinned.map(String),adult:prefs.adult.map(String)};
+    return {pinned:prefs.pinned.map(String),adult:prefs.adult.map(String),mature:prefs.mature instanceof Array ? prefs.mature.map(String) : []};
 }
 function adultSearchResult(item,library,adultLibraries) {
     if((adultLibraries || []).indexOf(String(library.key))>=0)return true;
@@ -111,8 +111,25 @@ function connections(server) {
         return score(a) - score(b);
     });
 }
+// The labels and the server order share one definition, including both directions.
+function librarySorts() {
+    return [
+        {title:"Titre · A à Z", value:"titleSort:asc"},
+        {title:"Titre · Z à A", value:"titleSort:desc"},
+        {title:"Ajout · Plus récents", value:"addedAt:desc"},
+        {title:"Ajout · Plus anciens", value:"addedAt:asc"},
+        {title:"Année · Décroissante", value:"year:desc"},
+        {title:"Année · Croissante", value:"year:asc"},
+        {title:"Sortie · Plus récentes", value:"originallyAvailableAt:desc"},
+        {title:"Sortie · Plus anciennes", value:"originallyAvailableAt:asc"},
+        {title:"Note · Plus hautes", value:"rating:desc"},
+        {title:"Note · Plus basses", value:"rating:asc"},
+        {title:"Durée · Plus courtes", value:"duration:asc"},
+        {title:"Durée · Plus longues", value:"duration:desc"}
+    ];
+}
 function libraryPath(section, filter, sort, genre, start, size) {
-    var params = {sort: ["titleSort:asc", "addedAt:desc", "year:desc", "titleSort:desc", "originallyAvailableAt:desc", "rating:desc", "duration:desc"][sort] || "titleSort:asc",
+    var params = {sort: (librarySorts()[sort] || librarySorts()[0]).value,
         "X-Plex-Container-Start": start, "X-Plex-Container-Size": size};
     if (filter === 1) params.unwatched = 1;
     if (filter === 2) params.inProgress = 1;

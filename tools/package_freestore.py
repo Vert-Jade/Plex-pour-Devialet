@@ -95,7 +95,7 @@ def verify_package(path):
 if __name__=='__main__':
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--identifier',required=True,help='Must belong to the actual FreeFactory account prefix')
-    parser.add_argument('--version',default='0.5.1-dev')
+    parser.add_argument('--version',default='0.5.2-dev')
     args=parser.parse_args()
     if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9.-]*',args.version):parser.error('Version invalide')
     report=write_package(ROOT/'dist'/('Le-Pavillon-de-Jade-pour-Plex-'+args.version+'.fbxqml'),args.identifier)

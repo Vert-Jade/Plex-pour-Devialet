@@ -12,7 +12,9 @@ Le client s’exécute sur le Player et communique directement avec Plex et le P
 | `app/PlexService.qml` | Compte/profil, serveur, bibliothèques, catalogue, Watchlist et progression |
 | `app/Request.qml` | Transport annulable, délai, JSON/XML, protection contre les réponses périmées |
 | `app/Plex.js` | Métadonnées, chemins, filtres, marqueurs et préférences |
-| `app/Shell.qml` | Navigation, focus, fiches et panneaux |
+| `app/Shell.qml` | Navigation, focus exclusif, historique des sélections et panneaux |
+| `app/DetailView.qml` | Fiche média, actions compactes, rangées d’acteurs/bonus, défilement et retour de filmographie |
+| `app/IconButton.qml` | Commandes rondes, pictogrammes, disponibilité et focus ; pagination et fiche |
 | `app/AppInfo.js`, `app/Brand.qml` | Identité publique, version et présentation du nom avec le logo existant |
 | `app/RemoteHints.qml`, `app/TvIcon.qml` | Touches de télécommande et légendes communes, sans ajouter de commandes au focus |
 | `tools/devialet.py` | Détection, lancement développeur et liste des ressources publiques |
@@ -32,6 +34,10 @@ Les composants visuels reçoivent `api` ou `session`. Ils ne lisent pas la confi
 - Les replis automatiques sont bornés. L’échec final libère la source et demande l’arrêt de l’encodeur ; les options restent disponibles pour une action explicite Réessayer.
 - L’arrêt des anciens encodeurs conserve des transports indépendants, bornés et suivis en mémoire. Éviter de créer puis détruire des composants QML de requête à chaque transition : cette variante a échoué lors de la recette matérielle.
 - Changer `manifest.identifier` change l’espace Settings du Player. Le nom public peut évoluer sans changer l’identifiant de développement.
+- `contentFocused` et `detailFocused` excluent les menus, panneaux et erreurs. Une destination active dans la barre latérale garde son icône jade, jamais une seconde lueur de focus. L’accueil et les bibliothèques utilisent la même largeur animée de barre latérale.
+- `Plex.librarySorts()` est la source unique des libellés et valeurs de tri envoyées au serveur. Trier porte sur toute la bibliothèque filtrée avant pagination ; ne pas trier seulement les quarante affiches visibles.
+- Les classifications `mature` et `adult` sont séparées dans les préférences par profil/serveur. `adult` conserve les anciens marquages explicites ; `mature` n’élargit pas le filtre de recherche et n’est pas un contrôle parental.
+- Haut/Bas pendant une vidéo changent uniquement la visibilité des commandes ; Menu ouvre les options. La pause reste une intention distincte.
 
 ## Vérification et données
 

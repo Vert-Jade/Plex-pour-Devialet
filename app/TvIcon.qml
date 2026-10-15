@@ -15,8 +15,13 @@ Canvas {
         c.save(); c.scale(width / 24, height / 24); c.strokeStyle = ink; c.fillStyle = ink; c.lineWidth = 1.8; c.lineCap = "round"; c.lineJoin = "round";
         c.beginPath();
         if (kind === "down") { c.moveTo(6,9); c.lineTo(12,15); c.lineTo(18,9); }
+        else if (kind === "up") { c.moveTo(6,15);c.lineTo(12,9);c.lineTo(18,15); }
         else if (kind === "left") { c.moveTo(15,5); c.lineTo(8,12); c.lineTo(15,19); }
         else if (kind === "right") { c.moveTo(9,5); c.lineTo(16,12); c.lineTo(9,19); }
+        else if (kind === "first") { c.moveTo(5,5);c.lineTo(5,19);c.moveTo(17,5);c.lineTo(10,12);c.lineTo(17,19); }
+        else if (kind === "reel") { c.arc(12,11,9,0,Math.PI*2);c.moveTo(12,20);c.lineTo(22,20);c.stroke();c.beginPath();for(var ri=0;ri<4;ri++){var ra=ri*Math.PI/2;c.moveTo(14+5*Math.cos(ra),11+5*Math.sin(ra));c.arc(12+5*Math.cos(ra),11+5*Math.sin(ra),2,0,Math.PI*2);}c.fill();c.beginPath(); }
+        else if (kind === "pin") { c.moveTo(8,3);c.lineTo(16,3);c.lineTo(15,10);c.lineTo(19,15);c.lineTo(5,15);c.lineTo(9,10);c.closePath();c.moveTo(12,15);c.lineTo(12,22); }
+        else if (kind === "more") { for(var mi=5;mi<=19;mi+=7){c.moveTo(mi+1.5,12);c.arc(mi,12,1.5,0,Math.PI*2);}c.fill();c.beginPath(); }
         else if (kind === "back") { c.moveTo(9,5);c.lineTo(4,10);c.lineTo(9,15);c.moveTo(4,10);c.lineTo(14,10);c.bezierCurveTo(21,10,21,19,14,19); }
         else if (kind === "menu") { for(var my=6;my<=18;my+=6){c.moveTo(5,my);c.lineTo(19,my);} }
         else if (kind === "horizontal") { c.moveTo(8,6);c.lineTo(3,12);c.lineTo(8,18);c.moveTo(16,6);c.lineTo(21,12);c.lineTo(16,18); }

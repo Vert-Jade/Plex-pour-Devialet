@@ -8,6 +8,30 @@ Application {
     property int phase: 0
     property int failures: 0
     property bool finished: false
+    property int sortCheck: 0
+    property var sortLast: null
+    property int sortRated: 0
+    property bool sortOrdered: true
+    function checkSort() {
+        var value=Plex.librarySorts()[sortCheck].value,parts=value.split(":"),field=parts[0],last=sortLast,okay=sortOrdered,checked=sortRated;
+        for(var i=0;i<api.items.length;i++) {
+            if(field==="titleSort")continue; // PMS uses its own locale-aware title collation.
+            var raw=api.items[i][field];if(raw===undefined || raw===null || raw==="")continue;
+            var next=field==="originallyAvailableAt" ? Date.parse(raw) : Number(raw);
+            // PMS orders editions by their shortest/longest version, not necessarily Media[0].
+            if(field==="duration") {
+                var durations=(api.items[i].Media || []).map(function(m){return Number(m.duration);}).filter(function(n){return isFinite(n) && n>0;});
+                if(durations.length)next=parts[1]==="asc" ? Math.min.apply(Math,durations) : Math.max.apply(Math,durations);
+            }
+            if(!isFinite(next))continue;
+            if(last!==null && (parts[1]==="asc" ? next<last : next>last))okay=false;
+            last=next;checked++;
+        }
+        if(field!=="titleSort" && checked<2 && (api.page+1)*api.pageSize<api.total){sortLast=last;sortRated=checked;sortOrdered=okay;api.changePage(1);return;}
+        root.report("sort_"+field+"_"+parts[1],!api.error && okay && api.items.length>0 && (field==="titleSort" || checked>1));
+        sortLast=null;sortRated=0;sortOrdered=true;
+        if(++sortCheck<Plex.librarySorts().length)api.changeSort(sortCheck);else root.finish();
+    }
     function report(name,ok){console.log((ok ? "QA_PASS " : "QA_FAIL ")+name);if(!ok)failures++;}
     function finish(){if(finished)return;finished=true;console.log("QA_DONE failures="+failures);}
     Component.onCompleted:{var xhr=new XMLHttpRequest();xhr.onreadystatechange=function(){if(xhr.readyState===XMLHttpRequest.DONE && xhr.status===200)root.config=JSON.parse(xhr.responseText);};xhr.open("GET",Qt.resolvedUrl("qa-config.json"));xhr.send();}
@@ -23,7 +47,8 @@ Application {
                 if(index<0){root.finish();return;}root.phase=9;api.openItem(index);
             }
             else if(root.phase===9){root.report("folder_children",!!api.browsePath && api.items.every(function(m){return Plex.allowedMedia(m,api.libraries);}));root.phase=10;api.back();}
-            else if(root.phase===10){root.report("folder_parent_restored",!api.browsePath && !api.history.length && api.view===5);root.finish();}
+            else if(root.phase===10){root.report("folder_parent_restored",!api.browsePath && !api.history.length && api.view===5);root.phase=11;api.section=root.config.sortLibrary;api.sortIndex=0;api.selectView(1);}
+            else if(root.phase===11)root.checkSort();
         }
         onDetailsLoaded:{if(root.phase===3){root.report("detail_with_chapters_extras",String(api.detail.ratingKey)===String(root.config.media.ratingKey));if((api.detail.Role || []).length && api.detail.Role[0].id){root.phase=4;api.openActor(0);}else{root.phase=5;api.loadProfiles();}}}
         onNextEpisodeReady:{if(root.phase===6){root.report("next_episode_endpoint",!media.ratingKey || Plex.allowedMedia(media,api.libraries));root.phase=7;api.selectView(3);}}

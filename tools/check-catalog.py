@@ -21,7 +21,15 @@ def main():
     seed=json.loads((ROOT/'.local/playback-probe-media.json').read_text(encoding='utf8'))
     media=get('/library/metadata/'+str(int(seed['ratingKey']))+'?includeChapters=1&includeExtras=1&includeMarkers=1')['Metadata'][0]
     assert str(media['librarySectionID']) in {str(l['key']) for l in libs}
-    config=json.dumps({'token':token,'base':f'http://{local}:32400','libraries':libs,'media':media,'query':(media.get('grandparentTitle') or media['title'])[:5]}).encode()
+    # Meaningful order checks require several rated titles, not a near-empty sample.
+    sort_library=None
+    for library in libs:
+        if library['type']!='movie':continue
+        rows=get('/library/sections/'+library['key']+'/all?sort=rating:desc&X-Plex-Container-Size=40').get('Metadata',[])
+        if sum(isinstance(m.get('rating'),(float,int)) for m in rows)>2:
+            sort_library=library;break
+    assert sort_library,'No sufficiently rated library available for sort checks'
+    config=json.dumps({'token':token,'base':f'http://{local}:32400','libraries':libs,'sortLibrary':sort_library,'media':media,'query':(media.get('grandparentTitle') or media['title'])[:5]}).encode()
     class Handler(devialet.AppHandler):
         def do_GET(self):
             if self.client_address[0]!=player:self.send_error(403);return

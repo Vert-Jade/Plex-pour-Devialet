@@ -1,5 +1,5 @@
 FEUILLE DE ROUTE — LE PAVILLON DE JADE POUR PLEX
-Version 0.5.1 en développement, état au 15 octobre 2026.
+Version 0.5.2 en développement, état au 15 octobre 2026.
 
 Les fonctions réalisées, partielles et manquantes sont suivies dans docs/AUDIT.md.
 Cette version inclut les profils Home, recherche globale, chapitres, langues,

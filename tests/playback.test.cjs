@@ -8,6 +8,22 @@ vm.runInContext(fs.readFileSync('app/Plex.js','utf8').replace('.pragma library',
 const intro = {type:'intro',startTimeOffset:10000,endTimeOffset:80000};
 const credits = {type:'credits',startTimeOffset:500000,endTimeOffset:550000};
 
+test('down and up only hide or reveal playback commands, including while paused',()=>{
+    const source=fs.readFileSync('app/main.qml','utf8');
+    const Qt=Object.fromEntries(['Down','Up','Back','Escape','Backspace','MediaStop','Menu','Left','Right','Return','Enter','Select','Space','MediaTogglePlayPause','MediaPlay','MediaPause'].map((k,i)=>['Key_'+k,i]));
+    const state={Qt,Date,controlsVisible:true,pausedIntent:false,optionsOpen:false,lastPosition:45000,
+        hideControls:{stop(){}},reveal(){state.controlsVisible=true;},openPlaybackOptions(){state.optionsOpen=true;},stopPlayback(){state.stopped=true;},seekPlayback(p){state.sought=p;},setPlaybackPaused(p){state.pausedIntent=p;}};
+    vm.createContext(state);vm.runInContext(source.slice(source.indexOf('    function handlePlaybackKey('),source.indexOf('    function playbackFailure(')),state);
+    for(const paused of [false,true]){
+        state.pausedIntent=paused;assert.equal(state.handlePlaybackKey(Qt.Key_Down),true);assert.equal(state.controlsVisible,false);assert.equal(state.pausedIntent,paused);assert.equal(state.optionsOpen,false);
+        state.handlePlaybackKey(Qt.Key_Down);assert.equal(state.controlsVisible,false);
+        state.handlePlaybackKey(Qt.Key_Up);assert.equal(state.controlsVisible,true);assert.equal(state.pausedIntent,paused);assert.equal(state.optionsOpen,false);
+    }
+    state.handlePlaybackKey(Qt.Key_Right);assert.equal(state.sought,55000);
+    state.handlePlaybackKey(Qt.Key_Menu);assert.equal(state.optionsOpen,true);
+    assert.equal(state.handlePlaybackKey(-1),false);state.handlePlaybackKey(Qt.Key_Back);assert.equal(state.stopped,true);
+});
+
 test('dedicated play/pause commands are idempotent and do not restart a failed source',()=>{
     let plays=0,pauses=0;
     const context={pausedIntent:false,switchingSource:false,stream:{error:''},player:{play(){plays++;},pause(){pauses++;}}};

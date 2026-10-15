@@ -1,20 +1,29 @@
-VERIFICATIONS — LE PAVILLON DE JADE POUR PLEX 0.5.1-dev
+VERIFICATIONS — LE PAVILLON DE JADE POUR PLEX 0.5.2-dev
 Etat local au 15 octobre 2026 ; version en développement.
 
-- Tests JavaScript : 77 scénarios (logique simulée et chemins de données).
+- Tests JavaScript : 82 scénarios (logique simulée et chemins de données).
 - Tests Python : 8 scénarios ; lanceur, index public et paquet reproductible.
-- Rendu QML PC : composants réels, données fictives, 720p et 1080p.
+- Rendu QML PC : composants réels, données fictives, 720p et 1080p,
+  zone d'affichage 90/95/100 %, focus visible unique, accueil vide,
+  12 tris, 24 bibliothèques, distribution/bonus, retour acteur, pagination.
 - Catalogue Devialet : recherche, collections, métadonnées, acteur,
-  profils Home XML, épisode suivant, playlists et dossiers : 10 contrôles réussis.
+  profils Home XML, épisode suivant, playlists, dossiers et 12 tris :
+  22 contrôles réussis. Notes absentes et durées de versions prises en compte.
+- Interface sur Devialet, données fictives : 16 contrôles réussis,
+  dont accueil ouvert/rétracté, texte non masqué, un focus, bobine,
+  acteurs/bonus, retour de filmographie, classification et erreur superposée.
+- Haut/Bas en lecture native : masquent/réaffichent les commandes sans pause.
+  Menu garde l'accès aux pistes. Légende réelle rendue sur PC sans débordement.
 - Lecture Devialet : direct, reprise, intro injectée, panne simulée,
   conversion, pistes en pause, déplacement et nettoyage : réussis.
 - Essai renforcé : commandes Lecture/Pause répétées, échec final libérant
   la source et réessai explicite avec image/son : réussi en parcours direct et conversion.
 - Après-lecture : fin contrôlée, compte à rebours, annulation puis
   ouverture de l’épisode suivant avec image/son : réussis.
-- Lecture continue : 600 secondes en direct et 600 secondes en conversion,
+- Lecture continue (passe 0.5.1, non rejouée intégralement en 0.5.2) :
+  600 secondes en direct et 600 secondes en conversion,
   sans blocage ni repli non demandé ; image/son confirmés sur la TV.
-- VO avec sous-titres français complets : incrustation confirmée par PMS,
+- VO avec sous-titres français complets (passe 0.5.1) : incrustation confirmée par PMS,
   présence, lisibilité et synchronisation confirmées par le spectateur.
 - Pause de 35 secondes, changement réel de piste audio, saut de générique
   injecté conservant la suite et fin de flux native : réussis.
@@ -22,7 +31,7 @@ Etat local au 15 octobre 2026 ; version en développement.
   historique inchangé et encodeurs de test libérés, vérifiés par relecture PMS.
 - Aides de télécommande communes et numérotation S02E02 : rendu/navigation
   PC vérifiés ; application complète chargée et lue sur le Devialet.
-- 15 échantillons convertis sur Devialet : H.264, HEVC, AV1, MJPEG, MPEG-4 ;
+- 15 échantillons convertis sur Devialet (passe 0.5.1) : H.264, HEVC, AV1, MJPEG, MPEG-4 ;
   AAC, E-AC3, AC3, DTS, MP3, WMA v2 ; SRT, ASS, PGS, texte MP4.
   Extraits courts avec pause/reprise et pistes audio/vidéo actives ;
   incrustation confirmée pour les quatre types de sous-titres échantillonnés.

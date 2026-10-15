@@ -55,7 +55,7 @@ if '--real' in sys.argv:
     service.setProperty('section',data['section'])
     service.setProperty('browseTitle',data['section']['title'])
     service.setProperty('total',data['total'])
-    service.setProperty('sortIndex',1)
+    service.setProperty('sortIndex',2)
 service.setProperty('allItems',items)
 service.setProperty('hubs',[{'title':'Continuer à regarder','items':items[:5]},{'title':'Nouveaux ajouts · Films','items':items},{'title':'Nouveaux ajouts · Séries','items':items[3:]}])
 service.setProperty('items',items)
@@ -87,7 +87,7 @@ key(Qt.Key_Down);key(Qt.Key_Return);assert shell.property('sheet') == 'synopsis'
 key(Qt.Key_Escape);assert shell.property('detailOpen')
 key(Qt.Key_Up)
 # Every visible action is reachable; skip restart when no offset exists.
-while shell.property('detailButton') < 3: key(Qt.Key_Right)
+while shell.property('detailButton') != 3: key(Qt.Key_Right)
 key(Qt.Key_Return);assert shell.property('sheet') == 'info'
 key(Qt.Key_Escape);key(Qt.Key_Escape);assert not shell.property('detailOpen')
 assert shell.property('itemIndex') == 0
@@ -96,7 +96,7 @@ key(Qt.Key_Return)
 trailer={'title':'Bande-annonce de test','extraType':1,'Media':[{'container':'mp4','videoCodec':'h264','audioCodec':'aac','Part':[{'key':'/services/iva/assets/fixture/video.mp4'}]}]}
 detail=dict(items[0],Extras={'Metadata':[trailer]})
 service.setProperty('detail',detail)
-key(Qt.Key_Down);key(Qt.Key_Right);key(Qt.Key_Return)
+key(Qt.Key_Right);key(Qt.Key_Right);key(Qt.Key_Return)
 assert service.property('trailerCount') == 1 and shell.property('detailOpen')
 detail['Extras']['Metadata'].append(dict(trailer,title='Seconde bande-annonce de test'))
 service.setProperty('detail',detail)
@@ -177,8 +177,9 @@ service.setProperty('total',80)
 key(Qt.Key_Down);key(Qt.Key_Down);assert shell.property('zone') == 3
 key(Qt.Key_Return);assert service.property('page') == 1 and shell.property('itemIndex') == 0
 key(Qt.Key_Down);key(Qt.Key_Down);assert shell.property('pageButton') == 0
-key(Qt.Key_Right);key(Qt.Key_Return);assert service.property('page') == 1
-key(Qt.Key_Left);key(Qt.Key_Return);assert service.property('page') == 0
+key(Qt.Key_Right);assert shell.property('pageButton') == 0
+key(Qt.Key_Left);assert shell.property('pageButton') == 2
+key(Qt.Key_Return);assert service.property('page') == 0
 # Error overlays and logout confirmation never lose the remote focus.
 service.setProperty('error','Serveur temporairement indisponible.')
 key(Qt.Key_Return);assert not service.property('error')
@@ -225,7 +226,7 @@ service.setProperty('globalSearch',False);service.setProperty('home',False);serv
 service.setProperty('browsePath','');service.setProperty('history',[])
 service.setProperty('browseTitle',service.property('section').toVariant().get('title','Bibliothèque'))
 service.setProperty('state','library');service.setProperty('view',1);service.setProperty('items',items)
-service.setProperty('searchText','');service.setProperty('filterIndex',0);service.setProperty('sortIndex',1 if '--real' in sys.argv else 0);service.setProperty('genreTitle','Tous les genres')
+service.setProperty('searchText','');service.setProperty('filterIndex',0);service.setProperty('sortIndex',2 if '--real' in sys.argv else 0);service.setProperty('genreTitle','Tous les genres')
 service.setProperty('total',data['total'] if '--real' in sys.argv else len(items))
 QMetaObject.invokeMethod(service,'libraryLoaded');shell.setProperty('zone',2)
 capture('bibliotheque-1080p')
@@ -286,9 +287,12 @@ key(Qt.Key_Escape);key(Qt.Key_Up);key(Qt.Key_Return)
 assert service.property('state') == 'library' and service.property('profileId') == '1'
 QMetaObject.invokeMethod(service,'openLibraries');QTest.qWait(100)
 key(Qt.Key_Return);assert len(service.property('pinnedLibraries').toVariant())==2
-key(Qt.Key_Right);key(Qt.Key_Return)
-capture('bibliotheques-confidentialite')
-key(Qt.Key_Return);key(Qt.Key_Left);key(Qt.Key_Return)
+key(Qt.Key_Menu);key(Qt.Key_Down);key(Qt.Key_Return)
+assert service.property('libraryPrefs').toVariant()['mature']
+key(Qt.Key_Menu);key(Qt.Key_Down);capture('bibliotheques-confidentialite');key(Qt.Key_Return)
+assert service.property('libraryPrefs').toVariant()['adult'] and not service.property('libraryPrefs').toVariant()['mature']
+key(Qt.Key_Menu);key(Qt.Key_Up);key(Qt.Key_Up);key(Qt.Key_Return)
+key(Qt.Key_Return)
 key(Qt.Key_Escape);assert service.property('state')=='library'
 key(Qt.Key_Menu)
 QTest.qWait(300);assert shell.property('sheet')=='settings'
@@ -297,6 +301,8 @@ key(Qt.Key_Return);assert service.property('allowAdultSearch'),shell.property('s
 key(Qt.Key_Return);assert not service.property('allowAdultSearch')
 capture('parametres-confidentialite')
 key(Qt.Key_Escape)
+from ui_audit import run as audit_ui
+audit_ui(view, root, service, shell, items, capture, key)
 view.close()
 assert not qml_errors, qml_errors
 if '--store' in sys.argv:

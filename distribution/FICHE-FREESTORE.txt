@@ -1,5 +1,5 @@
 LE PAVILLON DE JADE POUR PLEX — BROUILLON DE FICHE
-Version de travail : 0.5.1-dev. Non déposée, non validée.
+Version de travail : 0.5.2-dev. Non déposée, non validée.
 Identifiant : utiliser le préfixe réel du compte FreeFactory.
 Prix envisagé : gratuit. Langue : français. Catégorie : multimédia/vidéo.
 Cible de recette : Player Devialet associé à une Delta S.
